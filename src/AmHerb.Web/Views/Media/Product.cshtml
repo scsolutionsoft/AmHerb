@@ -1,0 +1,4 @@
+﻿@model Product
+@{ViewData["Title"]="จัดการภาพ · "+Model.Name;}
+<div class="page-heading"><div><p class="eyebrow">PRODUCT STUDIO</p><h1>@Model.Name</h1><p class="text-muted">จัดการภาพที่ลูกค้าเห็นในหน้าร้าน</p></div><a href="/Admin?section=Products" class="btn btn-outline-success">กลับรายการสินค้า</a></div>
+@await Component.InvokeAsync("ProductImageEditor",new{productId=Model.Id})

@@ -1,0 +1,20 @@
+﻿@model ProductInput
+@{ ViewData["Title"] = "จัดการสินค้า"; }
+<a href="/Admin?section=Products">← กลับรายการสินค้า</a><h1 class="h3 my-4">@(Model.SkuId == null ? "เพิ่มสินค้า / ตัวเลือกใหม่" : "แก้ไขสินค้า")</h1>
+<nav class="stock-tabs"><a href="#product-details">ข้อมูลสินค้า</a>@if(Model.ProductId!=null){<a href="#product-images">รูปภาพสินค้า</a><a href="/Catalog/Detail/@Model.SkuId" target="_blank" rel="noopener">ดูหน้าร้าน ↗</a>}</nav><form id="product-details" method="post" asp-action="Product" class="card p-4" data-product-details><div asp-validation-summary="All" class="text-danger"></div><input asp-for="SkuId" type="hidden" /><input asp-for="RowVersion" type="hidden" /><div class="row g-3">
+<div class="col-md-4"><label asp-for="ProductId">Product ID เดิม (ว่าง = สินค้าใหม่)</label><input asp-for="ProductId" class="form-control" readonly="@(Model.SkuId != null)" /></div>
+<div class="col-md-4"><label asp-for="Name">ชื่อสินค้า</label><input asp-for="Name" class="form-control" /></div><div class="col-md-4"><label asp-for="Category">หมวดหมู่</label><input asp-for="Category" class="form-control" /></div>
+<div class="col-md-4"><label asp-for="Code">SKU</label><input asp-for="Code" class="form-control" /></div><div class="col-md-4"><label asp-for="Barcode">บาร์โค้ด</label><input asp-for="Barcode" class="form-control" /></div><div class="col-md-4"><label asp-for="Variant">ตัวเลือก / บรรจุภัณฑ์</label><input asp-for="Variant" class="form-control" /></div>
+<div class="col-md-4"><label asp-for="CapsuleCount">จำนวนแคปซูล</label><input asp-for="CapsuleCount" class="form-control" /></div><div class="col-md-4"><label asp-for="WeightGrams">น้ำหนักกรัม</label><input asp-for="WeightGrams" class="form-control" /></div><div class="col-md-4"><label asp-for="LowStockThreshold">จุดเตือนสต็อกต่ำ</label><input asp-for="LowStockThreshold" class="form-control" /></div>
+<div class="col-12"><label asp-for="Description">รายละเอียดสินค้า</label><textarea asp-for="Description" class="form-control" rows="3"></textarea></div>
+<input asp-for="ImageUrl" type="hidden" /><div class="col-md-6"><p class="text-muted mt-4">บันทึกข้อมูลสินค้า และจัดการรูปภาพได้ในส่วนรูปภาพด้านล่าง</p></div><div class="col-md-6"><label asp-for="LabelDocumentUrl">URL เอกสารฉลาก</label><input asp-for="LabelDocumentUrl" class="form-control" /></div>
+<div class="col-md-4"><label asp-for="RegistrationNumber">เลขทะเบียนอาหาร</label><input asp-for="RegistrationNumber" class="form-control" /></div><div class="col-md-4"><label asp-for="Manufacturer">ผู้ผลิต</label><input asp-for="Manufacturer" class="form-control" /></div><div class="col-md-4"><label asp-for="Distributor">ผู้จัดจำหน่าย</label><input asp-for="Distributor" class="form-control" /></div>
+<div class="col-12"><label asp-for="Warnings">คำเตือน</label><textarea asp-for="Warnings" class="form-control"></textarea></div>
+<div class="col-md-6"><label asp-for="InitialPrice">ราคาขายเริ่มต้น (ใช้เมื่อสร้าง SKU)</label><input asp-for="InitialPrice" class="form-control" readonly="@(Model.SkuId!=null)" /></div><div class="col-md-6"><label asp-for="InitialToken">Base Token เริ่มต้น (ใช้เมื่อสร้าง SKU)</label><input asp-for="InitialToken" class="form-control" readonly="@(Model.SkuId!=null)" /></div>
+@if(Model.SkuId!=null){<p class="small text-muted">แก้ไขราคาขายใน <a href="/Admin?section=Prices">จัดการราคา</a> และปรับ Token ในเมนูที่กำหนดสิทธิ์ไว้</p>}<div class="col-12 d-flex flex-wrap gap-4"><label><input asp-for="Active" /> เปิดขาย</label><label><input asp-for="TokenEligible" /> ใช้ Token แลกได้</label><label><input asp-for="LotRequired" /> ต้องมีล็อต</label></div>
+<div class="col-12"><label asp-for="Reason">เหตุผล</label><input asp-for="Reason" class="form-control" /></div><div><button class="btn btn-success">บันทึกสินค้า</button></div></div></form>
+
+@if(Model.ProductId!=null){@await Component.InvokeAsync("ProductImageEditor",new{productId=Model.ProductId.Value})}
+
+
+

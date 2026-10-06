@@ -1,0 +1,2 @@
+﻿Channel,ExternalOrderId,Sku,Quantity,CustomerName,Email,Phone,Address,ReferralCode,Campaign,Creator,ChannelFee,AffiliateFee,FulfillmentStatus,TransactionRef,PaidAmount,Carrier,TrackingNumber
+Shopee,EXAMPLE-001,CELL-SYNC,1,Example Customer,customer@example.invalid,0900000000,Example shipping address,,CAMPAIGN-01,CREATOR-01,40,20,PendingPayment,,0,,

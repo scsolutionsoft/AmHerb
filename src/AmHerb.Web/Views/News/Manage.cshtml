@@ -1,0 +1,4 @@
+@model List<ContentPost>
+@{ViewData["Title"]="จัดการข่าวและโฆษณา";}
+<div class="page-heading"><div><p class="eyebrow">CONTENT STUDIO</p><h1>ข่าวและโฆษณา</h1><p>กำหนดเวลาเผยแพร่และกลุ่มผู้ชมได้ในแต่ละประกาศ</p></div><a class="btn btn-success" asp-action="Edit">+ สร้างประกาศ</a></div>
+<div class="card table-responsive"><table class="table mb-0"><thead><tr><th>หัวข้อ</th><th>กลุ่มผู้ชม</th><th>กำหนดเผยแพร่ (เวลาไทย)</th><th>สถานะ</th><th></th></tr></thead><tbody>@foreach(var p in Model){<tr><td>@p.Title</td><td>@(p.Audience==ContentAudience.Members?"สมาชิก":p.Audience==ContentAudience.Public?"บุคคลทั่วไป":"ทุกคน")</td><td>@Bangkok.Format(p.StartsAt)<br/>@Bangkok.Format(p.EndsAt)</td><td>@(!p.Published?"ฉบับร่าง":p.StartsAt>DateTime.UtcNow?"รอเผยแพร่":p.EndsAt<=DateTime.UtcNow?"สิ้นสุดแล้ว":"เผยแพร่")</td><td><a asp-action="Edit" asp-route-id="@p.Id">แก้ไข</a></td></tr>}</tbody></table></div>

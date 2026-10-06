@@ -1,0 +1,14 @@
+@using Microsoft.AspNetCore.Identity
+@inject SignInManager<AppUser> SignInManager
+<ul class="navbar-nav align-items-lg-center gap-2">
+@if (SignInManager.IsSignedIn(User))
+{
+    <li class="nav-item"><a class="nav-link" href="/Member">บัญชีของฉัน</a></li>
+    <li class="nav-item"><form asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="/" method="post"><button class="btn btn-outline-success btn-sm" type="submit">ออกจากระบบ</button></form></li>
+}
+else
+{
+    <li class="nav-item"><a class="nav-link" href="/Identity/Account/Login">เข้าสู่ระบบ</a></li>
+    <li class="nav-item"><a class="btn btn-success btn-sm" href="/Account/Register">สมัครสมาชิก</a></li>
+}
+</ul>

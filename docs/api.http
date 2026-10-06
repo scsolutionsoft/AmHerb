@@ -1,0 +1,89 @@
+﻿@base = https://localhost:7033
+@csrf = paste-token-from-auth-csrf
+@order = replace-public-order-guid
+
+### Keep cookies in your HTTP client. Obtain a CSRF token before each authentication context.
+GET {{base}}/api/v1/auth/csrf
+
+### Identity cookie sign-in (use actual credentials outside committed files)
+POST {{base}}/api/v1/auth/login
+Content-Type: application/json
+X-CSRF-TOKEN: {{csrf}}
+
+{"email":"your-email@example.com","password":"SET_IN_YOUR_HTTP_CLIENT_SECRET_STORE"}
+
+### Refresh CSRF after sign-in
+GET {{base}}/api/v1/auth/csrf
+
+### Products / price tiers
+GET {{base}}/api/v1/products?q=CELL
+
+### Profile
+GET {{base}}/api/v1/auth/profile
+
+### Set cart quantity
+POST {{base}}/api/v1/cart
+Content-Type: application/json
+X-CSRF-TOKEN: {{csrf}}
+
+{"skuId":2,"quantity":1,"tier":"Retail"}
+
+### Checkout prices and totals are calculated server-side
+POST {{base}}/api/v1/orders
+Content-Type: application/json
+X-CSRF-TOKEN: {{csrf}}
+
+{"key":"replace-with-a-new-uuid","customerName":"Example Customer","phone":"0900000000","email":"customer@example.com","address":"Shipping address","tokens":0}
+
+### Order (owner, cashier, authorized staff or protected guest cookie only)
+GET {{base}}/api/v1/orders/{{order}}
+
+### Wallet
+GET {{base}}/api/v1/token/balance
+
+### Statement
+GET {{base}}/api/v1/token/ledger?page=1
+
+### Quote is informational; checkout validates actual products/discounts/eligibility again
+POST {{base}}/api/v1/redemption/quote
+Content-Type: application/json
+X-CSRF-TOKEN: {{csrf}}
+
+{"eligibleMerchandise":990,"channel":0}
+
+### Own POS register and shifts
+GET {{base}}/api/v1/pos
+
+### Open own shift
+POST {{base}}/api/v1/pos/open
+Content-Type: application/json
+X-CSRF-TOKEN: {{csrf}}
+
+{"openingCash":500}
+
+### Cash sale; session must belong to current user
+POST {{base}}/api/v1/pos/sales
+Content-Type: application/json
+X-CSRF-TOKEN: {{csrf}}
+
+{"key":"replace-with-a-new-uuid","sessionId":1,"skuIds":[2],"quantities":[1],"customerName":"Retail customer","phone":"0900000000","tendered":1000,"paymentMethod":"Cash"}
+
+### Customer creates consent for a specific POS (customer's cookie required)
+POST {{base}}/api/v1/redemption/pos-consent
+Content-Type: application/json
+X-CSRF-TOKEN: {{csrf}}
+
+{"registerId":1,"tokens":50}
+
+### Close own shift
+POST {{base}}/api/v1/pos/close
+Content-Type: application/json
+X-CSRF-TOKEN: {{csrf}}
+
+{"sessionId":1,"countedCash":1490,"note":"Counted and reconciled"}
+
+### Disabled external integration placeholder, always 501 without mutation
+POST {{base}}/api/v1/marketplace/shopee/webhook
+Content-Type: application/json
+
+{}

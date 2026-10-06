@@ -1,0 +1,13 @@
+﻿# Security and business guardrails
+
+Authentication uses Identity, email confirmation, 12-character complex passwords, lockout, antiforgery, HttpOnly cookies and MFA management. All mutating MVC/API endpoints validate CSRF, except disabled marketplace webhook placeholders which return 501 without executing writes. API authentication currently uses secure cookie sessions: request `/api/v1/auth/csrf`, preserve its cookie and send `X-CSRF-TOKEN` on state changes. Refresh the CSRF token after logging in. Do not place credentials or consent codes in URLs.
+
+Role policies: SuperAdmin/Admin can operate back office; Finance handles payments/token/refunds/reports; Warehouse inventory and fulfillment; CustomerService member network and orders; Marketing prices/promotions/reports. Only SuperAdmin changes Identity roles. Member access scopes profile, wallet and POS data to the authenticated identity. Register warehouse reassignments require closed shifts. Customer POS redemption requires a hash-backed one-time consent, exact register and capped amount.
+
+Database event uniqueness and Serializable transactions protect payment confirmation, reward posting, reservations and returns. The ledger is append-only in EF and SQL Server. A privileged database administrator can alter schema/triggers; runtime credentials should not have that capability. The supplied development connection is stored outside Git. User Secrets is a local development convenience and is not encrypted secret storage.
+
+Reward guardrails are enforced in services, not browser calculations: verified fulfilled retail sales only, no signup/sponsor rewards, no inventory pack commission, no self-purchase network commission, channel policy gating, maximum three ancestors, original recipient snapshots, proportional return reversals and negative balance redemption blocking. Closed-loop credits have no peer transfer or withdrawal endpoints. Shipping and tax are excluded from redemption. Editing policies/prices/rates creates dated versions and records actor/reason.
+
+Data minimization: APIs project DTOs, never EF entities. Public catalog excludes cost. Member tree omits emails/addresses. Cashier order access is scoped; guest order access uses a Data Protection capability cookie. Public tracking reveals status/carrier only and requires order number and phone. CSV exports escape spreadsheet-formula prefixes and use UTF-8 BOM.
+
+Production configuration still requires real SMTP, admin credentials, business/regulatory product data and stock, HTTPS host setup, access-controlled backups and external provider credentials where used. This implementation provides the requested technical guardrails; operational policy/content approval remains with AM HERB.

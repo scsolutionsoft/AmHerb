@@ -1,0 +1,13 @@
+* text=auto
+*.cs text eol=lf
+*.cshtml text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+*.sql text eol=lf
+*.ps1 text eol=crlf
+*.ttf binary
+*.png binary
+*.jpg binary
+*.webp binary

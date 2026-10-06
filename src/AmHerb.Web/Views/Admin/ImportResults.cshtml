@@ -1,0 +1,3 @@
+@model IReadOnlyList<string>
+@{ ViewData["Title"] = "ผลนำเข้า CSV"; }
+<a href="/Admin?section=Imports">← กลับหน้านำเข้า</a><div class="card p-4 mt-4"><h1 class="h3">ผลนำเข้า Marketplace</h1><p>สำเร็จ @Model.Count(x => x.Contains(": OK ")) จาก @Model.Count คำสั่งซื้อ</p><p class="small text-muted">รายการที่ผิดพลาดอาจคงสถานะล่าสุดก่อนขั้นที่ผิด แก้ CSV แล้วนำเข้าซ้ำด้วย ExternalOrderId เดิมได้</p><div class="table-responsive"><table class="table"><thead><tr><th>คำสั่งซื้อ / ผลการทำงาน</th></tr></thead><tbody>@foreach (var result in Model) { <tr><td>@result</td></tr> }</tbody></table></div></div>

@@ -6,10 +6,11 @@ namespace AmHerb.Web.Models;
 
 public record CatalogItem(long Id, string Code, string Name, string Variant, string Category, decimal Price, decimal BaseToken, int Stock, string ImageUrl, string Barcode);
 public record CatalogModel(IReadOnlyList<CatalogItem> Items, string? Search);
-public record ProductDetail(Product Product, IReadOnlyList<CatalogItem> Skus, IReadOnlyList<ProductPrice> Prices);
+public record ProductDetail(Product Product, IReadOnlyList<CatalogItem> Skus, IReadOnlyList<ProductPrice> Prices, MemberStore? Store = null);
 public record CartLine(long SkuId, string Name, int Quantity, decimal UnitPrice, string Tier = "Retail");
 public class CartModel
 {
+    public MemberStore? Store { get; set; }
     public List<CartLine> Lines { get; set; } = [];
     public decimal Total => Lines.Sum(x => x.Quantity * x.UnitPrice);
     public CheckoutInput Checkout { get; set; } = new();

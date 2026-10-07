@@ -1,0 +1,11 @@
+@model AmHerb.Web.Controllers.MyStorePage
+@{ ViewData["Title"] = "ร้านค้าของฉัน"; }
+<h1>ร้านค้าของฉัน</h1>
+@if (Model.Store == null) {
+<div class="card p-4"><h2 class="h4">เริ่มต้นร้านออนไลน์ของคุณ</h2><p>ใช้คลังสมาชิกเดิมร่วมกับ POS เลือกสินค้าเปิดขายและตั้งค่าร้านก่อนเผยแพร่ การรับโอนและคืนเงินตรวจสอบโดยฝ่ายการเงิน</p><form asp-action="Create" method="post"><button class="btn btn-success">สร้างร้านแบบร่าง</button></form></div>
+} else {
+var s = Model.Store;
+<partial name="_StoreNav"/>
+<div class="row g-3 mb-4"><div class="col-md-4"><div class="card p-3">รอชำระ <strong class="h2">@Model.Pending</strong></div></div><div class="col-md-4"><div class="card p-3">รอจัดส่ง <strong class="h2">@Model.ReadyToShip</strong></div></div><div class="col-md-4"><div class="card p-3">สถานะ <strong class="h2">@(s.Published ? "เปิดร้าน" : "พักร้าน")</strong></div></div></div>
+<div class="row g-4"><div class="col-lg-8"><form asp-action="Save" method="post" class="card p-4"><h2 class="h4">ตั้งค่าร้าน</h2><label class="form-label" for="store-name">ชื่อร้าน</label><input id="store-name" name="name" value="@s.Name" maxlength="160" class="form-control mb-3" required/><label for="description">แนะนำร้าน</label><textarea id="description" name="description" maxlength="2000" class="form-control mb-3">@s.Description</textarea><label for="phone">เบอร์ติดต่อร้าน</label><input id="phone" name="phone" value="@s.Phone" maxlength="40" class="form-control mb-3"/><p>คลังที่ใช้: @s.Warehouse.Name</p><label class="mb-3"><input type="checkbox" name="published" value="true" checked="@s.Published"/> เปิดรับคำสั่งซื้อ</label><p class="small text-muted">ราคาปลีกและการตรวจรับเงินใช้ระบบกลาง สมาชิกเป็นผู้จัดส่งจากคลังของตน</p><button class="btn btn-success">บันทึก</button></form></div><div class="col-lg-4"><div class="card p-4"><h2 class="h4">ลิงก์และ QR ร้าน</h2><a href="/s/@s.Slug">/s/@s.Slug</a><img src="/MyStore/Qr" class="img-fluid mt-3" alt="QR ร้าน @s.Name"/><a href="/MyStore/Qr" download="store-qr.png">ดาวน์โหลด QR</a><p class="small mt-3">เปิดสินค้าในเมนูสินค้าร้านและเติมสต็อกผ่านใบเบิกก่อนเริ่มขาย</p></div></div></div>
+}

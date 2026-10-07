@@ -22,6 +22,7 @@ public class AdminController(AmHerbDbContext db, IAuthorizationService authoriza
             foreach (var candidate in new[] { "Orders", "Inventory", "Members", "Products" })
                 if ((await authorization.AuthorizeAsync(User, Permission(candidate))).Succeeded) { section = candidate; break; }
         if (!(await authorization.AuthorizeAsync(User, Permission(section))).Succeeded) return Forbid();
+        if (section == "Dashboard") return RedirectToAction("Overview", "Dashboard", new { from, to });
         var model = await PageAsync(section, q, Math.Max(1, page), from, to); return View(model);
     }
     private async Task<AdminPage> PageAsync(string section, string? q, int page, DateTime? from, DateTime? to)
@@ -135,7 +136,7 @@ public class AdminController(AmHerbDbContext db, IAuthorizationService authoriza
         else if (section == "Settings")
         {
             m.Headers = ["Key", "Value"];
-            m.Rows = (await db.SystemSettings.OrderBy(x => x.Key).ToListAsync()).Select(x => new TableRow([x.Key, x.Value])).ToList();
+            m.Rows = (await db.SystemSettings.Where(x => !x.Key.StartsWith("Demo.")).OrderBy(x => x.Key).ToListAsync()).Select(x => new TableRow([x.Key, x.Value])).ToList();
             foreach (var p in await db.ChannelPolicies.ToListAsync()) m.Metrics[p.Channel.ToString()] = $"Network={p.AllowNetworkReward}; Redeem={p.AllowRedemption}";
         }
         else if (section == "AuditLogs")
@@ -275,5 +276,3 @@ public class AdminController(AmHerbDbContext db, IAuthorizationService authoriza
         return File(Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(text)).ToArray(), "text/csv; charset=utf-8", "amherb-" + section + ".csv");
     }
 }
-
-

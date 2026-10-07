@@ -8,6 +8,9 @@ public sealed class AmHerbDbContext(DbContextOptions<AmHerbDbContext> options)
     : IdentityDbContext<AppUser>(options)
 {
     public DbSet<Member> Members => Set<Member>();
+    public DbSet<MemberStore> MemberStores => Set<MemberStore>();
+    public DbSet<StoreProduct> StoreProducts => Set<StoreProduct>();
+    public DbSet<StoreExpense> StoreExpenses => Set<StoreExpense>();
     public DbSet<CreditAccount> CreditAccounts => Set<CreditAccount>();
     public DbSet<CreditInvoice> CreditInvoices => Set<CreditInvoice>();
     public DbSet<CreditReceipt> CreditReceipts => Set<CreditReceipt>();
@@ -55,6 +58,12 @@ public sealed class AmHerbDbContext(DbContextOptions<AmHerbDbContext> options)
     protected override void OnModelCreating(ModelBuilder b)
     {
         base.OnModelCreating(b);
+        b.Entity<MemberStore>().HasIndex(x => x.MemberId).IsUnique();
+        b.Entity<MemberStore>().HasIndex(x => x.Slug).IsUnique();
+        b.Entity<StoreProduct>().HasIndex(x => new { x.StoreId, x.SkuId }).IsUnique();
+        b.Entity<StoreExpense>().HasIndex(x => new { x.StoreId, x.RequestKey }).IsUnique();
+        b.Entity<StoreExpense>().HasIndex(x => x.ReversesId).IsUnique().HasFilter("[ReversesId] IS NOT NULL");
+        b.Entity<Order>().HasIndex(x => new { x.StoreId, x.CreatedAt });
         b.Entity<CreditAccount>().HasIndex(x=>x.MemberId).IsUnique();
         b.Entity<CreditInvoice>().HasIndex(x=>x.OrderId).IsUnique();
         b.Entity<CreditInvoice>().HasIndex(x=>new{x.CreditAccountId,x.DueAt});
@@ -148,7 +157,7 @@ public sealed class AmHerbDbContext(DbContextOptions<AmHerbDbContext> options)
     {
         if(ChangeTracker.Entries<CreditReceipt>().Any(x=>x.State is EntityState.Modified or EntityState.Deleted && x.OriginalValues.GetValue<CreditReceiptStatus>(nameof(CreditReceipt.Status))!=CreditReceiptStatus.Pending))
             throw new InvalidOperationException("Reviewed credit receipts are immutable.");
-        if (ChangeTracker.Entries().Any(e => (e.Entity is Domain.TokenLedger or AuditLog or InventoryTransaction or JournalEntry or JournalLine or CreditAllocation) &&
+        if (ChangeTracker.Entries().Any(e => (e.Entity is Domain.TokenLedger or AuditLog or InventoryTransaction or JournalEntry or JournalLine or CreditAllocation or StoreExpense) &&
             e.State is EntityState.Modified or EntityState.Deleted))
             throw new InvalidOperationException("Posted history is append-only. Create a compensating entry.");
         foreach(var entry in ChangeTracker.Entries<JournalEntry>().Where(x=>x.State==EntityState.Added))

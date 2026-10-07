@@ -1,0 +1,10 @@
+@model AmHerb.Web.Controllers.StorefrontPage
+@{ ViewData["Title"] = Model.Store.Name; }
+<div class="card p-4 mb-4"><p class="eyebrow">ร้านค้าสมาชิก AM HERB</p><h1>@Model.Store.Name</h1><p style="white-space:pre-line">@Model.Store.Description</p><p>ติดต่อร้าน: @Model.Store.Phone</p><p class="text-muted">จัดส่งจากคลังสมาชิก · ราคาปลีกกลาง · โอนเงินตามคำแนะนำในคำสั่งซื้อและตรวจรับโดยฝ่ายการเงิน</p><a class="btn btn-success align-self-start" asp-action="Cart" asp-route-slug="@Model.Store.Slug">ตะกร้าของร้านนี้</a></div>
+<form method="get" class="d-flex gap-2 mb-4"><input name="q" value="@Model.Query" class="form-control" placeholder="ค้นหาสินค้า" aria-label="ค้นหาสินค้า"/><button class="btn btn-outline-success">ค้นหา</button></form>
+@if (Model.Products.Count == 0) { <div class="alert alert-info">ยังไม่มีสินค้าที่เปิดขายตรงกับการค้นหา</div> }
+<div class="row g-3">
+@foreach (var p in Model.Products) {
+<div class="col-sm-6 col-lg-4"><article class="card h-100 p-3"><img src="@p.ImageUrl" alt="@p.Name" class="img-fluid" style="height:180px;object-fit:contain"/><h2 class="h5 mt-3">@p.Name</h2><p>@p.Variant · @p.Code</p><strong>฿@p.Price.ToString("N2")</strong><p>พร้อมขาย @p.Stock ชิ้น</p><a href="/s/@Model.Store.Slug/products/@p.Id" class="small mb-2">ดูรายละเอียดสินค้า</a><form method="post" asp-action="Add" asp-route-slug="@Model.Store.Slug" class="d-flex gap-2"><input type="hidden" name="skuId" value="@p.Id"/><input type="number" class="form-control" name="quantity" value="1" min="1" max="@Math.Min(10000,p.Stock)" aria-label="จำนวน @p.Name"/><button class="btn btn-success" disabled="@(p.Stock <= 0)">ใส่ตะกร้า</button></form></article></div>
+}
+</div>

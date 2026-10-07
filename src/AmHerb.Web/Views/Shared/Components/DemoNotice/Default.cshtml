@@ -1,0 +1,5 @@
+@model string
+<div class="alert alert-warning no-print d-flex flex-wrap justify-content-between align-items-center gap-2" role="status">
+    <div><strong>โหมดข้อมูลจำลอง</strong> · ฐานข้อมูล SQL Server จริง แต่สมาชิกและรายการเงินเป็นข้อมูลทดสอบ ไม่มีการโอนเงินจริง @(Model == "Preparing" ? "· กำลังเตรียมข้อมูล" : "")</div>
+    @if (User.IsInRole("SuperAdmin")) { <a class="btn btn-sm btn-outline-dark" href="/Demo">ตัวอย่างแต่ละระบบ / รีเซ็ตข้อมูล →</a> }
+</div>

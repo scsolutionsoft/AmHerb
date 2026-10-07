@@ -1,0 +1,91 @@
+@model SalesDashboard
+@inject Microsoft.AspNetCore.Authorization.IAuthorizationService DashboardAuthorization
+@using System.Text.Json
+@{
+    ViewData["Title"] = Model.Overview ? "แดชบอร์ดบริหารภาพรวม" : "แดชบอร์ดยอดขายของฉัน";
+    var action = Model.Overview ? "Overview" : "Mine";
+    var export = Model.Overview ? "ExportOverview" : "ExportMine";
+    var from = Model.Period.From.ToString("yyyy-MM-dd");
+    var to = Model.Period.To.ToString("yyyy-MM-dd");
+    var canProducts = (await DashboardAuthorization.AuthorizeAsync(User, "Prices")).Succeeded;
+    var chart = JsonSerializer.Serialize(Model.Days.Select(x => new { day = x.Day.ToString("dd/MM/yyyy"), net = x.Net, previous = x.Previous }));
+    var metrics = new[] {
+        (Label: "ยอดขายสุทธิสินค้า", Value: "฿" + Model.Current.Net.ToString("N2"), Current: Model.Current.Net, Previous: Model.Previous.Net, Note: "หักส่วนลดและจำนวนสินค้าคืนแล้ว"),
+        (Label: "คำสั่งซื้อขาย", Value: Model.Current.Orders.ToString("N0"), Current: (decimal)Model.Current.Orders, Previous: (decimal)Model.Previous.Orders, Note: "รวมซื้อเชื่อที่อนุมัติ ไม่นับรอชำระ / ยกเลิก"),
+        (Label: "ยอดเฉลี่ยต่อคำสั่งซื้อ", Value: "฿" + Model.Current.Average.ToString("N2"), Current: Model.Current.Average, Previous: Model.Previous.Average, Note: "ยอดขายสุทธิ ÷ คำสั่งซื้อ"),
+        (Label: "จำนวนสินค้าขายสุทธิ", Value: Model.Current.Units.ToString("N0") + " ชิ้น", Current: (decimal)Model.Current.Units, Previous: (decimal)Model.Previous.Units, Note: "หักจำนวนสินค้าที่คืนแล้ว")
+    };
+}
+<link rel="stylesheet" href="~/css/dashboard.css" asp-append-version="true" />
+<div class="sales-dashboard">
+    <header class="dash-hero">
+        <div><p class="dash-eyebrow">AM HERB · BUSINESS INSIGHTS</p><h1>@ViewData["Title"]</h1>
+            <p>@(Model.Overview ? "ติดตามการเติบโต วางแผนการตลาด และดูแลการขายในทุกช่องทาง" : "ติดตามยอดขายของคุณ วางแผนสินค้า และดูผลจากลิงก์แนะนำส่วนตัว")</p>
+            <span class="dash-scope">@(Model.Overview ? "ภาพรวมบริษัท" : "ข้อมูลเฉพาะบัญชีของคุณ") · @Model.Period.From.ToString("dd/MM/yyyy") – @Model.Period.To.ToString("dd/MM/yyyy") · เวลากรุงเทพฯ</span>
+        </div>
+        <div class="dash-hero-actions no-print">
+            <a class="btn btn-light" asp-action="@export" asp-route-from="@from" asp-route-to="@to" asp-route-channel="@Model.Channel">ดาวน์โหลดรายงาน CSV ↗</a>
+            <button class="btn dash-print" type="button" data-print>พิมพ์รายงาน</button>
+        </div>
+    </header>
+    <div class="dash-tabs no-print" aria-label="เลือกแดชบอร์ด">
+        @if ((await DashboardAuthorization.AuthorizeAsync(User, "Reports")).Succeeded) { <a class="@(Model.Overview ? "selected" : "")" asp-action="Overview" asp-route-from="@from" asp-route-to="@to" asp-route-channel="@Model.Channel">ภาพรวมบริษัท</a> }
+        <a class="@(!Model.Overview ? "selected" : "")" asp-action="Mine" asp-route-from="@from" asp-route-to="@to" asp-route-channel="@Model.Channel">ยอดขายและสินค้าของฉัน</a>
+        <a href="#marketing">ผลการตลาด</a><a href="#products">วิเคราะห์สินค้า</a><a href="#inventory">สถานะสต็อก</a>
+    </div>
+    <nav class="dash-tabs no-print" aria-label="จัดการงาน">
+        @if (Model.Overview) {
+            @foreach (var item in new[] { ("Orders", "คำสั่งซื้อ", "Orders"), ("Products", "จัดการสินค้า", "Prices"), ("Promotions", "โปรโมชัน", "Prices"), ("Members", "สมาชิก", "Members"), ("Reports", "รายงานละเอียด", "Reports"), ("Inventory", "รับสินค้า / ล็อต", "Inventory"), ("Settings", "ตั้งค่าระบบ", "Settings") }) {
+                if ((await DashboardAuthorization.AuthorizeAsync(User, item.Item3)).Succeeded) { <a href="/Admin?section=@item.Item1">@item.Item2 ↗</a> }
+            }
+        } else {
+            <a href="/Pos">ขายสินค้าผ่าน POS ↗</a><a href="/Transfers">เบิกสินค้าเข้าคลัง ↗</a><a href="/Stock">ดูสต็อก ↗</a><a href="/Member#profile">แก้ไขข้อมูลของฉัน ↗</a>
+        }
+    </nav>
+    <form method="get" asp-action="@action" class="dash-filter no-print">
+        <div><label for="dash-from">ตั้งแต่วันที่</label><input id="dash-from" name="from" type="date" value="@from" class="form-control" required /></div>
+        <div><label for="dash-to">ถึงวันที่</label><input id="dash-to" name="to" type="date" value="@to" class="form-control" required /></div>
+        <div><label for="dash-channel">ช่องทางการขาย</label><select id="dash-channel" name="channel" class="form-select"><option value="">ทุกช่องทาง</option>@foreach (var channel in Enum.GetValues<SalesChannel>()) { <option value="@channel" selected="@(Model.Channel == channel)">@SalesDashboard.ChannelLabel(channel)</option> }</select></div>
+        <button class="btn btn-success" type="submit">วิเคราะห์ข้อมูล</button>
+        <div class="dash-presets">@foreach (var days in new[] { 7, 30, 90 }) { <a asp-action="@action" asp-route-from="@Model.Period.To.AddDays(1 - days).ToString("yyyy-MM-dd")" asp-route-to="@to" asp-route-channel="@Model.Channel">@days วัน</a> }</div>
+        <div asp-validation-summary="All" class="text-danger"></div>
+    </form>
+    <section class="dash-kpis" aria-label="ตัวชี้วัดการขาย">
+        @foreach (var metric in metrics) {
+            var change = DashboardSummary.Growth(metric.Current, metric.Previous);
+            <article class="dash-kpi"><span>@metric.Label</span><strong>@metric.Value</strong>
+                <div class="dash-change @(change < 0 ? "decline" : "")">@(change == null ? "ยังไม่มีฐานเปรียบเทียบ" : $"{(change >= 0 ? "+" : "")}{change:N1}% จากช่วงก่อนหน้า")</div><small>@metric.Note</small>
+            </article>
+        }
+    </section>
+    @if (Model.Overview) {
+        <section class="dash-financial" aria-label="กำไรและต้นทุน"><div><span>กำไรหลังต้นทุนและค่าธรรมเนียม</span><strong>฿@Model.Current.Contribution.ToString("N2")</strong><small>ก่อนค่าใช้จ่ายดำเนินงานและรางวัล Token</small></div><div><span>ต้นทุนสินค้าสุทธิ</span><strong>฿@Model.Current.Cost.ToString("N2")</strong></div><div><span>ค่าธรรมเนียมช่องทาง / Affiliate</span><strong>฿@Model.Current.Fees.ToString("N2")</strong></div><div><span>สมาชิกใหม่ในช่วง</span><strong>@Model.NewMembers.ToString("N0") คน</strong><small>ทุกช่องทาง</small></div></section>
+    }
+    <div class="dash-grid">
+        <section class="dash-panel dash-trend" aria-labelledby="trend-title">
+            <div class="dash-panel-heading"><div><p class="dash-eyebrow">SALES PERFORMANCE</p><h2 id="trend-title">แนวโน้มยอดขายรายวัน</h2><p>เทียบช่วงก่อนหน้า @Model.Period.From.AddDays(-Model.Period.Days).ToString("dd/MM") – @Model.Period.From.AddDays(-1).ToString("dd/MM/yyyy")</p></div><label class="dash-toggle no-print"><input id="compare-sales" type="checkbox" checked /> แสดงช่วงก่อนหน้า</label></div>
+            @if (Model.Current.Orders == 0) { <div class="dash-empty-note">ยังไม่มียอดขายที่ชำระหรืออนุมัติเครดิตแล้วในช่วงนี้ กราฟแสดงยอดจริงเป็นศูนย์</div> }
+            <div id="sales-chart" class="dash-chart" data-days="@chart" aria-label="กราฟยอดขายรายวัน"></div>
+            <div class="dash-chart-legend"><span><i></i>ช่วงที่เลือก</span><span><i class="previous"></i>ช่วงก่อนหน้า</span></div>
+            <div class="dash-chart-controls"><label for="chart-day">เลือกวันเพื่อดูยอด</label><input id="chart-day" type="range" min="0" max="@(Model.Days.Count - 1)" value="@(Model.Days.Count - 1)" /><output id="chart-detail" for="chart-day" aria-live="polite"></output></div>
+            <noscript><p>ยอดรวมช่วงที่เลือก ฿@Model.Current.Net.ToString("N2") · ช่วงก่อนหน้า ฿@Model.Previous.Net.ToString("N2")</p></noscript>
+        </section>
+        <aside class="dash-panel dash-insights"><p class="dash-eyebrow">NEXT BEST ACTIONS</p><h2>สิ่งที่ควรติดตาม</h2><p class="dash-muted">ข้อสังเกตจากข้อมูลในช่วงที่เลือก</p><ol>@foreach (var insight in Model.Insights) { <li>@insight</li> }</ol><div class="dash-mini-stat"><span>คำสั่งซื้อรอชำระ</span><strong>@Model.PendingOrders.ToString("N0")</strong></div><div class="dash-mini-stat"><span>สมาชิกซื้อซ้ำในช่วง</span><strong>@Model.Current.RepeatBuyers.ToString("N0")</strong></div><small class="dash-muted">ซื้อซ้ำ = สมาชิกคนเดิมมีคำสั่งซื้อขายตั้งแต่ 2 รายการในช่วงนี้</small></aside>
+    </div>
+    <div class="dash-grid" id="marketing">
+        <section class="dash-panel"><div class="dash-panel-heading"><div><p class="dash-eyebrow">CHANNEL MIX</p><h2>ยอดขายแยกช่องทาง</h2></div></div>
+            @if (Model.Channels.Count == 0) { <div class="dash-empty">ยังไม่มีข้อมูลช่องทางการขายในช่วงนี้</div> }
+            @foreach (var row in Model.Channels) { var share = Model.Current.Net == 0 ? 0 : row.Net / Model.Current.Net * 100; <div class="dash-channel"><div><strong>@row.Label</strong><span>฿@row.Net.ToString("N2")</span></div><progress max="100" value="@share.ToString(System.Globalization.CultureInfo.InvariantCulture)" aria-label="สัดส่วนยอดขาย @row.Label"></progress><small>@row.Orders.ToString("N0") คำสั่งซื้อ · @share.ToString("N1")% ของยอดสุทธิ</small></div> }
+        </section>
+        <section class="dash-panel"><p class="dash-eyebrow">REFERRAL PERFORMANCE</p><h2>จากลิงก์แนะนำสู่ยอดขาย</h2><div class="dash-referral"><div><strong>@Model.Visits.ToString("N0")</strong><span>การเข้าชมลิงก์</span></div><span aria-hidden="true">→</span><div><strong>@Model.ConvertedVisits.ToString("N0")</strong><span>การเข้าชมที่เกิดยอดขาย</span></div></div><div class="dash-conversion"><span>อัตราเข้าชมที่เกิดยอดขาย</span><strong>@Model.ConversionRate.ToString("N1")%</strong></div><p class="dash-muted small">นับการเข้าชมลิงก์แนะนำในช่วงนี้ทุกช่องทาง และการเข้าชมที่เชื่อมกับคำสั่งซื้อที่ชำระเงินหรืออนุมัติซื้อเชื่อแล้วในช่วงและช่องทางที่เลือก ไม่ใช่จำนวนผู้เข้าชมเว็บไซต์ทั้งหมด</p><div class="dash-mini-stat"><span>ส่วนลดจากคำสั่งซื้อขาย</span><strong>฿@Model.Current.Discount.ToString("N2")</strong></div></section>
+    </div>
+    <section class="dash-panel" id="products"><div class="dash-panel-heading"><div><p class="dash-eyebrow">PRODUCT INTELLIGENCE</p><h2>สินค้าขายดี 10 อันดับ</h2><p>เรียงตามยอดขายสุทธิสินค้าในช่วงที่เลือก</p></div><a class="btn btn-sm btn-outline-success no-print" href="@(Model.Overview ? (canProducts ? "/Admin?section=Products" : "/Catalog") : "/Stock")">@(Model.Overview ? "ดูรายการสินค้า" : "ดูสินค้าคงคลังของฉัน") ↗</a></div><div class="table-responsive"><table class="table dash-table"><thead><tr><th scope="col">อันดับ</th><th scope="col">สินค้า / SKU</th><th scope="col" class="text-end">ขายสุทธิ</th><th scope="col" class="text-end">ยอดขายสุทธิ</th><th scope="col" class="text-end">สัดส่วนยอดขาย</th></tr></thead><tbody>@for (var i = 0; i < Model.Products.Count; i++) { var product = Model.Products[i]; <tr><td><span class="dash-rank">@(i + 1)</span></td><td><div class="dash-product"><img src="/Media/Thumb/@product.SkuId" alt="" loading="lazy" /><div><a href="/Catalog/Detail/@product.SkuId">@product.Name</a><small>@product.Code</small></div></div></td><td class="text-end">@product.Units.ToString("N0") ชิ้น</td><td class="text-end fw-bold">฿@product.Net.ToString("N2")</td><td class="text-end">@((Model.Current.Net == 0 ? 0 : product.Net / Model.Current.Net * 100).ToString("N1"))%</td></tr> }@if (Model.Products.Count == 0) { <tr><td colspan="5" class="dash-empty">ยังไม่มีสินค้าที่ขายในช่วงนี้</td></tr> }</tbody></table></div></section>
+    <section class="dash-panel"><div class="dash-panel-heading"><div><p class="dash-eyebrow">CAMPAIGN ANALYSIS</p><h2>ผลการขายตามแคมเปญ</h2><p>10 แคมเปญที่มียอดขายสูงสุด · ใช้ชื่อแคมเปญที่บันทึกในคำสั่งซื้อ</p></div></div><div class="table-responsive"><table class="table dash-table"><thead><tr><th scope="col">แคมเปญ</th><th scope="col" class="text-end">คำสั่งซื้อ</th><th scope="col" class="text-end">ขายสุทธิ</th><th scope="col" class="text-end">ยอดขายสุทธิ</th><th scope="col" class="text-end">ยอดเฉลี่ย / คำสั่งซื้อ</th></tr></thead><tbody>@foreach (var row in Model.Campaigns) { <tr><td>@row.Label</td><td class="text-end">@row.Orders.ToString("N0")</td><td class="text-end">@row.Units.ToString("N0") ชิ้น</td><td class="text-end fw-bold">฿@row.Net.ToString("N2")</td><td class="text-end">฿@((row.Orders == 0 ? 0 : row.Net / row.Orders).ToString("N2"))</td></tr> }@if (Model.Campaigns.Count == 0) { <tr><td colspan="5" class="dash-empty">ยังไม่มีข้อมูลแคมเปญในช่วงนี้</td></tr> }</tbody></table></div><p class="dash-muted small mb-0">ยังไม่มีข้อมูลค่าโฆษณา จึงไม่คำนวณ ROAS หรือผลตอบแทนจากค่าโฆษณา</p></section>
+    <section class="dash-panel" id="inventory"><div class="dash-panel-heading"><div><p class="dash-eyebrow">INVENTORY HEALTH</p><h2>@(Model.Overview ? "สุขภาพสต็อกทุกคลัง" : "สินค้าคงคลังของฉัน")</h2><p>สถานะปัจจุบัน ไม่ขึ้นกับตัวกรองวันที่และช่องทาง · @(Model.Overview ? "ทุกคลังที่เปิดใช้งาน" : "เฉพาะคลังที่บัญชีคุณเป็นเจ้าของ")</p></div><a class="btn btn-sm btn-outline-success no-print" href="/Stock">จัดการสต็อก ↗</a></div>
+        <div class="dash-stock-summary"><span>พร้อมขาย <strong>@Model.Stock.Sum(x => x.Available).ToString("N0")</strong> ชิ้น</span><span>สต็อกต่ำ <strong>@Model.Stock.Count(x => x.Available <= x.Threshold).ToString("N0")</strong> รายการ / คลัง</span><span>ใกล้หมดอายุ 90 วัน <strong>@Model.Stock.Sum(x => x.Expiring).ToString("N0")</strong> ชิ้น</span><span>หมดอายุ <strong>@Model.Stock.Sum(x => x.Expired).ToString("N0")</strong> ชิ้น</span></div>
+        <div class="table-responsive"><table class="table dash-table"><thead><tr><th scope="col">สินค้า</th><th scope="col">คลัง</th><th scope="col" class="text-end">พร้อมขาย</th><th scope="col" class="text-end">จอง</th><th scope="col" class="text-end">ใกล้หมดอายุ</th><th scope="col">สถานะ</th></tr></thead><tbody>@foreach (var row in Model.Stock.Take(20)) { <tr><td><strong>@row.Name</strong><small class="d-block dash-muted">@row.Code</small></td><td>@row.Warehouse</td><td class="text-end">@row.Available.ToString("N0")</td><td class="text-end">@row.Reserved.ToString("N0")</td><td class="text-end">@row.Expiring.ToString("N0")</td><td><span class="dash-status @(row.Available <= row.Threshold || row.Expired > 0 ? "attention" : "")">@(row.Expired > 0 ? "มีสินค้าหมดอายุ" : row.Available <= row.Threshold ? "ควรเติมสต็อก" : row.Expiring > 0 ? "วางแผนขายตามล็อต" : "พร้อมขาย")</span></td></tr> }@if (Model.Stock.Count == 0) { <tr><td colspan="6" class="dash-empty">ยังไม่มีสินค้าในคลังที่คุณดูได้ <a href="/Transfers">ไปหน้าเบิกสินค้า</a></td></tr> }</tbody></table></div>@if (Model.Stock.Count > 20) { <p class="dash-muted small">แสดง 20 รายการที่มีจำนวนพร้อมขายน้อยที่สุดจาก @Model.Stock.Count รายการ ดูทั้งหมดได้ที่หน้าสต็อก</p> }
+    </section>
+    <section class="dash-panel"><div class="dash-panel-heading"><div><p class="dash-eyebrow">RECENT SALES</p><h2>คำสั่งซื้อขายล่าสุด</h2></div>@if (!Model.Overview) { <a class="btn btn-sm btn-success no-print" href="/Pos">เปิด POS ของฉัน →</a> }</div><div class="table-responsive"><table class="table dash-table"><thead><tr><th scope="col">เลขคำสั่งซื้อ</th><th scope="col">วัน / เวลา</th><th scope="col">ช่องทาง</th><th scope="col">สถานะ</th><th scope="col" class="text-end">ยอดขายสุทธิสินค้า</th></tr></thead><tbody>@foreach (var row in Model.Recent) { <tr><td>@row.Number</td><td>@Bangkok.Format(row.CreatedAt)</td><td>@SalesDashboard.ChannelLabel(row.Channel)</td><td>@SalesDashboard.StatusLabel(row.Status)</td><td class="text-end fw-bold">฿@row.Net.ToString("N2")</td></tr> }@if (Model.Recent.Count == 0) { <tr><td colspan="5" class="dash-empty">ยังไม่มีคำสั่งซื้อขายในช่วงนี้</td></tr> }</tbody></table></div></section>
+    <footer class="dash-method"><strong>วิธีอ่านรายงาน</strong><p>ยอดขายนับตามวันที่สร้างคำสั่งซื้อที่ชำระเงินหรืออนุมัติซื้อเชื่อแล้ว และใช้ข้อมูลคืนสินค้าปัจจุบัน ยอดสุทธิคือราคาสินค้าหักส่วนลดและสัดส่วนสินค้าคืน ไม่รวมค่าจัดส่ง ภาษี และไม่ใช่ยอดเงินสดรับ ช่วงเปรียบเทียบมีจำนวนวันเท่ากันและอยู่ก่อนช่วงที่เลือกทันที</p>@if (!Model.Overview) { <p>ยอดขายของฉันรวมคำสั่งซื้อที่คุณเป็นแคชเชียร์หรือผู้ขายที่ได้รับการระบุไว้ ไม่นับคำสั่งซื้อส่วนตัวเพียงเพราะคุณเป็นผู้ซื้อ และไม่รวมยอดขายของสมาชิกในทีม</p> }</footer>
+</div>
+@section Scripts { <script src="~/js/dashboard.js" asp-append-version="true"></script> }

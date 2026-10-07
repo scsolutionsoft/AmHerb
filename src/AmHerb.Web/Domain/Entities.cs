@@ -147,6 +147,8 @@ public class InventoryTransaction : Entity
 }
 public class Cart : Entity
 {
+    public long? StoreId { get; set; }
+    public MemberStore? Store { get; set; }
     public Guid PublicId { get; set; } = Guid.NewGuid();
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     public List<CartItem> Items { get; set; } = [];
@@ -162,6 +164,9 @@ public class CartItem : Entity
 }
 public class Order : VersionedEntity
 {
+    public long? StoreId { get; set; }
+    public MemberStore? Store { get; set; }
+    [MaxLength(160)] public string StoreName { get; set; } = "";
     public Guid PublicId { get; set; } = Guid.NewGuid();
     [MaxLength(60)] public string Number { get; set; } = "";
     [MaxLength(100)] public string IdempotencyKey { get; set; } = "";

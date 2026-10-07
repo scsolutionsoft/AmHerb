@@ -1,0 +1,63 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "coreclr",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/src/AmHerb.Web",
+      "program": "${workspaceFolder}/src/AmHerb.Web/bin/Debug/net8.0/AmHerb.Web.dll",
+      "stopAtEntry": false,
+      "env": {
+        "DOTNET_CLI_UI_LANGUAGE": "en-US",
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "logging": {
+        "moduleLoad": false
+      },
+      "sourceFileMap": {
+        "/Views": "${workspaceFolder}/Views"
+      },
+      "name": "AmHerb.Web [http]",
+      "preLaunchTask": "AmHerb.Web",
+      "args": [],
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "\\bNow listening on:\\s+https?://\\S",
+        "uriFormat": "http://localhost:5087"
+      }
+    },
+    {
+      "type": "coreclr",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/src/AmHerb.Web",
+      "program": "${workspaceFolder}/src/AmHerb.Web/bin/Debug/net8.0/AmHerb.Web.dll",
+      "stopAtEntry": false,
+      "env": {
+        "DOTNET_CLI_UI_LANGUAGE": "en-US",
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "logging": {
+        "moduleLoad": false
+      },
+      "sourceFileMap": {
+        "/Views": "${workspaceFolder}/Views"
+      },
+      "name": "AmHerb.Web [https]",
+      "preLaunchTask": "AmHerb.Web",
+      "args": [],
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "\\bNow listening on:\\s+https?://\\S",
+        "uriFormat": "https://localhost:7033"
+      }
+    },
+    {
+      "name": "Attach to a .NET Process",
+      "type": "coreclr",
+      "request": "attach",
+      "logging": {
+        "moduleLoad": false
+      }
+    }
+  ]
+}

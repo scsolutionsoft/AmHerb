@@ -1,0 +1,8 @@
+@model AmHerb.Web.Controllers.StoreProductsPage
+@{ ViewData["Title"] = "สินค้าร้าน"; }
+<h1>สินค้าร้าน @Model.Store.Name</h1><partial name="_StoreNav"/>
+<form method="get" class="d-flex gap-2 mb-3"><input name="q" value="@Model.Query" class="form-control" placeholder="ชื่อสินค้า / SKU" aria-label="ค้นหาสินค้า"/><button class="btn btn-success">ค้นหา</button></form>
+<p>ใช้ราคาปลีกกลาง จำนวนพร้อมขายจากคลัง @Model.Store.WarehouseId · การเปิดขายไม่เพิ่มสต็อก</p>
+<div class="table-responsive"><table class="table"><thead><tr><th>สินค้า</th><th>ราคา</th><th>พร้อมขาย</th><th>สถานะ</th></tr></thead><tbody>
+@foreach(var p in Model.Products) { var enabled = Model.Enabled.Contains(p.Id); <tr><td>@p.Name <small>@p.Code</small></td><td>@p.Price.ToString("N2")</td><td>@p.Stock</td><td><form asp-action="Product" method="post"><input type="hidden" name="skuId" value="@p.Id"/><input type="hidden" name="enabled" value="@(!enabled ? "true" : "false")"/><button class="btn btn-sm @(enabled ? "btn-outline-danger" : "btn-success")">@(enabled ? "พักขาย" : "เปิดขาย")</button></form></td></tr> }
+</tbody></table></div>

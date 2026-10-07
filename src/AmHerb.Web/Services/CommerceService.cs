@@ -25,21 +25,31 @@ public class CommerceService(AmHerbDbContext db, PricingService pricing, RewardS
 {
     public async Task<Order> CheckoutAsync(CheckoutInput input, IReadOnlyCollection<SaleLine> lines, long? buyerId, long? sellerId,
         SalesChannel channel = SalesChannel.Store, string? cashierId = null, long? sessionId = null, decimal tendered = 0,
-        string paymentMethod = "Cash", string? externalId = null, decimal channelFee = 0, decimal affiliateFee = 0, string campaign = "", string creator = "")
+        string paymentMethod = "Cash", string? externalId = null, decimal channelFee = 0, decimal affiliateFee = 0, string campaign = "", string creator = "", long? storeId = null)
     {
         if (string.IsNullOrWhiteSpace(input.Email)) input.Email = null;
         if (!Validator.TryValidateObject(input, new ValidationContext(input), [], true)) throw new BusinessException("ข้อมูลลูกค้าหรือคำสั่งซื้อไม่ถูกต้อง");
         if (input.Tokens < 0 || Money.Round(input.Tokens) != input.Tokens || string.IsNullOrWhiteSpace(input.Key)) throw new BusinessException("ข้อมูลตะกร้าไม่ถูกต้อง");
         if(input.UseCredit&&(channel!=SalesChannel.Store||buyerId==null))throw new BusinessException("เครดิตบริษัทใช้ได้เฉพาะสมาชิกที่ซื้อผ่านหน้าร้านบริษัท");
         await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+        MemberStore? store = null;
+        if (storeId != null)
+        {
+            store = await db.MemberStores.Include(x => x.Warehouse).SingleOrDefaultAsync(x => x.Id == storeId && x.Published && x.Member.Status == MemberStatus.Active && x.Warehouse.Active && x.Warehouse.OwnerMemberId == x.MemberId)
+                ?? throw new BusinessException("ร้านนี้ยังไม่พร้อมรับคำสั่งซื้อ");
+            if (channel != SalesChannel.Store || input.UseCredit || input.StockLoading || !string.IsNullOrWhiteSpace(input.Coupon) || lines.Any(x => x.Tier != "Retail")) throw new BusinessException("ร้านสมาชิกใช้ราคาปลีกกลาง ไม่รองรับเครดิตบริษัท คูปองร้านกลาง หรือการซื้อเติมสต็อก");
+            var enabled = await db.StoreProducts.Where(x => x.StoreId == storeId && x.Enabled).Select(x => x.SkuId).ToListAsync();
+            if (lines.Any(x => !enabled.Contains(x.SkuId))) throw new BusinessException("มีสินค้าที่ร้านไม่ได้เปิดขาย");
+            sellerId = store.MemberId;
+        }
         var prior = await db.Orders.Include(x => x.Items).SingleOrDefaultAsync(x => x.IdempotencyKey == input.Key);
         if (prior != null)
         {
-            if ((prior.BuyerMemberId != buyerId && !(channel == SalesChannel.POS && buyerId == null)) || prior.CashierUserId != cashierId || prior.Channel != channel) throw new BusinessException("รหัสรายการถูกใช้แล้ว");
+            if ((prior.BuyerMemberId != buyerId && !(channel == SalesChannel.POS && buyerId == null)) || prior.CashierUserId != cashierId || prior.Channel != channel || prior.StoreId != storeId) throw new BusinessException("รหัสรายการถูกใช้แล้ว");
             return prior;
         }
         if (lines.Count == 0 || lines.Count > 100 || lines.Any(x => x.Quantity < 1 || x.Quantity > 10000)) throw new BusinessException("ข้อมูลตะกร้าไม่ถูกต้อง");
-        long warehouseId = 1;
+        long warehouseId = store?.WarehouseId ?? 1;
         RedemptionAuthorization? redemptionApproval = null;
         if (channel == SalesChannel.POS)
         {
@@ -60,6 +70,7 @@ public class CommerceService(AmHerbDbContext db, PricingService pricing, RewardS
         var now = clock.GetUtcNow().UtcDateTime;
         var policy = await pricing.PolicyAsync();
         var order = new Order { Number = "AM" + now.ToString("yyyyMMdd") + "-" + Guid.NewGuid().ToString("N")[..12].ToUpperInvariant(), IdempotencyKey = input.Key,
+            StoreId = store?.Id, StoreName = store?.Name ?? "",
             BuyerMemberId = buyerId, SellerMemberId = sellerId, Channel = channel, CashierUserId = cashierId, PosSessionId = sessionId,
             CustomerName = input.CustomerName, Email = input.Email?.Trim() ?? "", Phone = input.Phone.Trim(), Address = input.Address,
             StockLoading = input.StockLoading, TokenRedemption = input.Tokens, TokenPolicyVersion = policy.Id, CreatedAt = now,
@@ -121,6 +132,7 @@ public class CommerceService(AmHerbDbContext db, PricingService pricing, RewardS
         else if (order.CashPayable == 0) await SettleAsync(order, payment, "TOKEN-" + order.Number);
         if (cashierId != null) audit.Add("POS.Sale", order.Id, order.Number);
         await notifications.AddAsync(buyerId, "order:" + order.Id, $"สร้างคำสั่งซื้อ {order.Number}");
+        if (store != null) await notifications.AddAsync(store.MemberId, "store-order:" + order.Id, $"ร้าน {store.Name} มีคำสั่งซื้อใหม่ {order.Number}");
         await db.SaveChangesAsync(); await tx.CommitAsync(); return order;
     }
     private static void Allocate(decimal total, OrderItem[] items, Func<OrderItem, decimal> weight, Action<OrderItem, decimal> assign)
@@ -259,4 +271,3 @@ public class CommerceService(AmHerbDbContext db, PricingService pricing, RewardS
         await db.SaveChangesAsync(); await tx.CommitAsync();
     }
 }
-

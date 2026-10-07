@@ -136,6 +136,9 @@ namespace AmHerb.Web.Data.Migrations
                     b.Property<Guid>("PublicId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<long?>("StoreId")
+                        .HasColumnType("bigint");
+
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
@@ -143,6 +146,8 @@ namespace AmHerb.Web.Data.Migrations
 
                     b.HasIndex("PublicId")
                         .IsUnique();
+
+                    b.HasIndex("StoreId");
 
                     b.ToTable("Carts");
                 });
@@ -928,6 +933,65 @@ namespace AmHerb.Web.Data.Migrations
                     b.ToTable("MemberClosures");
                 });
 
+            modelBuilder.Entity("AmHerb.Web.Domain.MemberStore", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<long>("MemberId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<bool>("Published")
+                        .HasColumnType("bit");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<long>("WarehouseId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MemberId")
+                        .IsUnique();
+
+                    b.HasIndex("Slug")
+                        .IsUnique();
+
+                    b.HasIndex("WarehouseId");
+
+                    b.ToTable("MemberStores");
+                });
+
             modelBuilder.Entity("AmHerb.Web.Domain.Notification", b =>
                 {
                     b.Property<long>("Id")
@@ -1087,6 +1151,14 @@ namespace AmHerb.Web.Data.Migrations
                     b.Property<bool>("StockLoading")
                         .HasColumnType("bit");
 
+                    b.Property<long?>("StoreId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("StoreName")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
                     b.Property<decimal>("Tax")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
@@ -1129,6 +1201,8 @@ namespace AmHerb.Web.Data.Migrations
                     b.HasIndex("Channel", "ExternalOrderId")
                         .IsUnique()
                         .HasFilter("[ExternalOrderId] IS NOT NULL");
+
+                    b.HasIndex("StoreId", "CreatedAt");
 
                     b.ToTable("Orders");
                 });
@@ -2660,6 +2734,82 @@ namespace AmHerb.Web.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("AmHerb.Web.Domain.StoreExpense", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("OccurredAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Reference")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("RequestKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long?>("ReversesId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("StoreId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReversesId")
+                        .IsUnique()
+                        .HasFilter("[ReversesId] IS NOT NULL");
+
+                    b.HasIndex("StoreId", "RequestKey")
+                        .IsUnique();
+
+                    b.ToTable("StoreExpenses");
+                });
+
+            modelBuilder.Entity("AmHerb.Web.Domain.StoreProduct", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("bit");
+
+                    b.Property<long>("SkuId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("StoreId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SkuId");
+
+                    b.HasIndex("StoreId", "SkuId")
+                        .IsUnique();
+
+                    b.ToTable("StoreProducts");
+                });
+
             modelBuilder.Entity("AmHerb.Web.Domain.SystemSetting", b =>
                 {
                     b.Property<long>("Id")
@@ -3319,6 +3469,16 @@ namespace AmHerb.Web.Data.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("AmHerb.Web.Domain.Cart", b =>
+                {
+                    b.HasOne("AmHerb.Web.Domain.MemberStore", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Store");
+                });
+
             modelBuilder.Entity("AmHerb.Web.Domain.CartItem", b =>
                 {
                     b.HasOne("AmHerb.Web.Domain.Cart", "Cart")
@@ -3536,6 +3696,25 @@ namespace AmHerb.Web.Data.Migrations
                     b.Navigation("Descendant");
                 });
 
+            modelBuilder.Entity("AmHerb.Web.Domain.MemberStore", b =>
+                {
+                    b.HasOne("AmHerb.Web.Domain.Member", "Member")
+                        .WithMany()
+                        .HasForeignKey("MemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("AmHerb.Web.Domain.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Member");
+
+                    b.Navigation("Warehouse");
+                });
+
             modelBuilder.Entity("AmHerb.Web.Domain.Order", b =>
                 {
                     b.HasOne("AmHerb.Web.Domain.Member", "Buyer")
@@ -3558,6 +3737,11 @@ namespace AmHerb.Web.Data.Migrations
                         .HasForeignKey("SellerMemberId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("AmHerb.Web.Domain.MemberStore", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Buyer");
 
                     b.Navigation("PosSession");
@@ -3565,6 +3749,8 @@ namespace AmHerb.Web.Data.Migrations
                     b.Navigation("Promotion");
 
                     b.Navigation("Seller");
+
+                    b.Navigation("Store");
                 });
 
             modelBuilder.Entity("AmHerb.Web.Domain.OrderItem", b =>
@@ -3776,6 +3962,36 @@ namespace AmHerb.Web.Data.Migrations
                     b.Navigation("Sku");
 
                     b.Navigation("SourceWarehouse");
+                });
+
+            modelBuilder.Entity("AmHerb.Web.Domain.StoreExpense", b =>
+                {
+                    b.HasOne("AmHerb.Web.Domain.MemberStore", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("AmHerb.Web.Domain.StoreProduct", b =>
+                {
+                    b.HasOne("AmHerb.Web.Domain.Sku", "Sku")
+                        .WithMany()
+                        .HasForeignKey("SkuId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("AmHerb.Web.Domain.MemberStore", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Sku");
+
+                    b.Navigation("Store");
                 });
 
             modelBuilder.Entity("AmHerb.Web.Domain.TokenConsumption", b =>

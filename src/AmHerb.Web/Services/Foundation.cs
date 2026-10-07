@@ -10,7 +10,18 @@ public class BusinessException(string message) : Exception(message);
 public static class Money { public static decimal Round(decimal n) => decimal.Round(n, 2, MidpointRounding.AwayFromZero); }
 public static class Bangkok
 {
-    public static string Format(DateTime? utc) => utc == null ? "—" : TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc.Value, DateTimeKind.Utc), TimeZoneInfo.FindSystemTimeZoneById("Asia/Bangkok")).ToString("dd/MM/yyyy HH:mm");
+    private static readonly TimeZoneInfo Zone = ResolveZone();
+    private static TimeZoneInfo ResolveZone()
+    {
+        // Windows NLS cannot map an IANA identifier without ICU. Use the native identifier.
+        var id = OperatingSystem.IsWindows() ? "SE Asia Standard Time" : "Asia/Bangkok";
+        try { return TimeZoneInfo.FindSystemTimeZoneById(id); }
+        catch (TimeZoneNotFoundException) { return FixedBangkokZone(); }
+        catch (InvalidTimeZoneException) { return FixedBangkokZone(); }
+    }
+    // Modern Bangkok business dates are UTC+07:00 with no daylight-saving transitions.
+    private static TimeZoneInfo FixedBangkokZone() => TimeZoneInfo.CreateCustomTimeZone("AMHERB.Bangkok", TimeSpan.FromHours(7), "Bangkok", "Bangkok");
+    public static string Format(DateTime? utc) => utc == null ? "—" : TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc.Value, DateTimeKind.Utc), Zone).ToString("dd/MM/yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture);
 }
 public class Actor(IHttpContextAccessor accessor)
 {

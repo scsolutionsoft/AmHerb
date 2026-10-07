@@ -41,12 +41,17 @@ builder.Services.AddScoped<Actor>(); builder.Services.AddScoped<AuditService>();
 builder.Services.AddScoped<PricingService>(); builder.Services.AddScoped<RewardService>(); builder.Services.AddScoped<InventoryService>();
 builder.Services.AddScoped<CommerceService>(); builder.Services.AddScoped<PosService>(); builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<StoreQueries>(); builder.Services.AddScoped<CartService>();
+builder.Services.AddScoped<SalesDashboardService>();
+builder.Services.AddScoped<MemberStoreService>();
+builder.Services.AddScoped<DemoDataMaintenance>();
 builder.Services.AddScoped<OrderAccess>();
 builder.Services.AddScoped<RedemptionConsentService>();
 builder.Services.AddScoped<StockTransferService>();
 builder.Services.AddScoped<MediaService>(); builder.Services.AddScoped<ConversationService>();
 builder.Services.AddScoped<CreditService>();
-builder.Services.AddScoped<IEmailSender, SmtpEmailSender>(); builder.Services.AddScoped<IRecurringJobs, RecurringJobs>();
+if (builder.Environment.IsDevelopment()) builder.Services.AddScoped<IEmailSender, DemoEmailSender>();
+else builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
+builder.Services.AddScoped<IRecurringJobs, RecurringJobs>();
 builder.Services.AddScoped<IPaymentGateway, ManualBankTransferProvider>(); builder.Services.AddScoped<IPaymentGateway, PromptPayQrProvider>(); builder.Services.AddScoped<IPaymentGateway, CardGatewayProvider>();
 builder.Services.AddScoped<IShippingProvider, ManualShippingProvider>(); builder.Services.AddScoped<ILineNotifier, LineNotifier>();
 builder.Services.AddScoped<IMarketplaceProvider, ShopeeProvider>(); builder.Services.AddScoped<IMarketplaceProvider, TikTokShopProvider>(); builder.Services.AddScoped<IMarketplaceProvider, LazadaProvider>();
@@ -117,4 +122,3 @@ app.UseAuthentication(); app.UseAuthorization(); app.UseRateLimiter();
 app.MapControllerRoute("default", "{controller=Home}/{action=Index}/{id?}"); app.MapRazorPages();
 app.Run();
 public partial class Program { }
-

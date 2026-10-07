@@ -32,3 +32,10 @@ Google OAuth redirect: `https://your-host/signin-google`. Validate the external 
 - Monitor application logs, failed jobs, low stock/expiry notifications, POS variances and negative token review flags.
 - No live third-party payment/marketplace webhook is enabled by default. Configure credentials and signed event handling before replacing the stubs.
 - Do not expose IIS detailed errors or EF sensitive-data logging on Production.
+
+## Member page returns HTTP 500 after deployment
+
+- Apply the matching migrations before enabling a new build. The member-store build reads `Orders.StoreId` and `Orders.StoreName`; an older schema raises SQL error 207 even on `/Member`.
+- Bangkok dates use `SE Asia Standard Time` on Windows and `Asia/Bangkok` on Linux. Windows NLS environments may not resolve the IANA identifier without ICU. The application has a UTC+07:00 fallback for modern business dates when system timezone data is unavailable.
+- Deploy the complete matching publish output, then recycle the site's application pool. Keep `ASPNETCORE_ENVIRONMENT=Production`; use the request ID to correlate the error with server logs rather than enabling public developer exception pages.
+- Regression check for Windows NLS: set `DOTNET_SYSTEM_GLOBALIZATION_USENLS=1` and run `dotnet test tests/AmHerb.Tests --filter FullyQualifiedName~BangkokTimeTests`. Verify `/Member` with a member that has transactions, since a blank account might not render any dates.

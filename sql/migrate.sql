@@ -2411,3 +2411,227 @@ GO
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261007071642_MemberStores'
+)
+BEGIN
+    ALTER TABLE [Orders] ADD [StoreId] bigint NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261007071642_MemberStores'
+)
+BEGIN
+    ALTER TABLE [Orders] ADD [StoreName] nvarchar(160) NOT NULL DEFAULT N'';
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261007071642_MemberStores'
+)
+BEGIN
+    ALTER TABLE [Carts] ADD [StoreId] bigint NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261007071642_MemberStores'
+)
+BEGIN
+    CREATE TABLE [MemberStores] (
+        [Id] bigint NOT NULL IDENTITY,
+        [MemberId] bigint NOT NULL,
+        [WarehouseId] bigint NOT NULL,
+        [Slug] nvarchar(60) NOT NULL,
+        [Name] nvarchar(160) NOT NULL,
+        [Description] nvarchar(2000) NOT NULL,
+        [Phone] nvarchar(40) NOT NULL,
+        [Published] bit NOT NULL,
+        [CreatedAt] datetime2 NOT NULL,
+        [RowVersion] rowversion NOT NULL,
+        CONSTRAINT [PK_MemberStores] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_MemberStores_Members_MemberId] FOREIGN KEY ([MemberId]) REFERENCES [Members] ([Id]) ON DELETE NO ACTION,
+        CONSTRAINT [FK_MemberStores_Warehouses_WarehouseId] FOREIGN KEY ([WarehouseId]) REFERENCES [Warehouses] ([Id]) ON DELETE NO ACTION
+    );
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261007071642_MemberStores'
+)
+BEGIN
+    CREATE TABLE [StoreExpenses] (
+        [Id] bigint NOT NULL IDENTITY,
+        [StoreId] bigint NOT NULL,
+        [RequestKey] uniqueidentifier NOT NULL,
+        [OccurredAt] datetime2 NOT NULL,
+        [Description] nvarchar(200) NOT NULL,
+        [Reference] nvarchar(200) NOT NULL,
+        [Amount] decimal(18,2) NOT NULL,
+        [ReversesId] bigint NULL,
+        [CreatedAt] datetime2 NOT NULL,
+        CONSTRAINT [PK_StoreExpenses] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_StoreExpenses_MemberStores_StoreId] FOREIGN KEY ([StoreId]) REFERENCES [MemberStores] ([Id]) ON DELETE NO ACTION
+    );
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261007071642_MemberStores'
+)
+BEGIN
+    CREATE TABLE [StoreProducts] (
+        [Id] bigint NOT NULL IDENTITY,
+        [StoreId] bigint NOT NULL,
+        [SkuId] bigint NOT NULL,
+        [Enabled] bit NOT NULL,
+        CONSTRAINT [PK_StoreProducts] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_StoreProducts_MemberStores_StoreId] FOREIGN KEY ([StoreId]) REFERENCES [MemberStores] ([Id]) ON DELETE NO ACTION,
+        CONSTRAINT [FK_StoreProducts_Skus_SkuId] FOREIGN KEY ([SkuId]) REFERENCES [Skus] ([Id]) ON DELETE NO ACTION
+    );
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261007071642_MemberStores'
+)
+BEGIN
+    CREATE INDEX [IX_Orders_StoreId_CreatedAt] ON [Orders] ([StoreId], [CreatedAt]);
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261007071642_MemberStores'
+)
+BEGIN
+    CREATE INDEX [IX_Carts_StoreId] ON [Carts] ([StoreId]);
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261007071642_MemberStores'
+)
+BEGIN
+    CREATE UNIQUE INDEX [IX_MemberStores_MemberId] ON [MemberStores] ([MemberId]);
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261007071642_MemberStores'
+)
+BEGIN
+    CREATE UNIQUE INDEX [IX_MemberStores_Slug] ON [MemberStores] ([Slug]);
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261007071642_MemberStores'
+)
+BEGIN
+    CREATE INDEX [IX_MemberStores_WarehouseId] ON [MemberStores] ([WarehouseId]);
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261007071642_MemberStores'
+)
+BEGIN
+    EXEC(N'CREATE UNIQUE INDEX [IX_StoreExpenses_ReversesId] ON [StoreExpenses] ([ReversesId]) WHERE [ReversesId] IS NOT NULL');
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261007071642_MemberStores'
+)
+BEGIN
+    CREATE UNIQUE INDEX [IX_StoreExpenses_StoreId_RequestKey] ON [StoreExpenses] ([StoreId], [RequestKey]);
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261007071642_MemberStores'
+)
+BEGIN
+    CREATE INDEX [IX_StoreProducts_SkuId] ON [StoreProducts] ([SkuId]);
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261007071642_MemberStores'
+)
+BEGIN
+    CREATE UNIQUE INDEX [IX_StoreProducts_StoreId_SkuId] ON [StoreProducts] ([StoreId], [SkuId]);
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261007071642_MemberStores'
+)
+BEGIN
+    ALTER TABLE [Carts] ADD CONSTRAINT [FK_Carts_MemberStores_StoreId] FOREIGN KEY ([StoreId]) REFERENCES [MemberStores] ([Id]) ON DELETE NO ACTION;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261007071642_MemberStores'
+)
+BEGIN
+    ALTER TABLE [Orders] ADD CONSTRAINT [FK_Orders_MemberStores_StoreId] FOREIGN KEY ([StoreId]) REFERENCES [MemberStores] ([Id]) ON DELETE NO ACTION;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261007071642_MemberStores'
+)
+BEGIN
+    IF OBJECT_ID(N'dbo.AmHerbDemoBaseline_Orders', N'U') IS NOT NULL
+    BEGIN
+        ALTER TABLE dbo.AmHerbDemoBaseline_Orders ADD StoreId bigint NULL, StoreName nvarchar(160) NOT NULL DEFAULT N'';
+        ALTER TABLE dbo.AmHerbDemoBaseline_Carts ADD StoreId bigint NULL;
+        SELECT TOP (0) * INTO dbo.AmHerbDemoBaseline_MemberStores FROM dbo.MemberStores;
+        SELECT TOP (0) * INTO dbo.AmHerbDemoBaseline_StoreProducts FROM dbo.StoreProducts;
+        SELECT TOP (0) * INTO dbo.AmHerbDemoBaseline_StoreExpenses FROM dbo.StoreExpenses;
+    END;
+    IF EXISTS (SELECT 1 FROM dbo.SystemSettings WHERE [Key]=N'Demo.State')
+    BEGIN
+        INSERT INTO dbo.SystemSettings ([Key],[Value]) VALUES
+            (N'Demo.Baseline.MemberStores',N'0'),(N'Demo.Baseline.StoreProducts',N'0'),(N'Demo.Baseline.StoreExpenses',N'0');
+    END;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261007071642_MemberStores'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261007071642_MemberStores', N'8.0.29');
+END;
+GO
+
+COMMIT;
+GO
+

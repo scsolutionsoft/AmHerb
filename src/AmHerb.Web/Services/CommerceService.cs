@@ -14,6 +14,13 @@ public class CheckoutInput
     [EmailAddress, MaxLength(200)] public string? Email { get; set; }
     [Required, MaxLength(40)] public string Phone { get; set; } = "";
     [MaxLength(1000)] public string Address { get; set; } = "";
+    [MaxLength(100)] public string HouseNumber { get; set; } = "";
+    [MaxLength(300)] public string AddressExtra { get; set; } = "";
+    [MaxLength(8)] public string SubdistrictCode { get; set; } = "";
+    [MaxLength(8)] public string? VillageCode { get; set; }
+    [MaxLength(160)] public string VillageName { get; set; } = "";
+    [MaxLength(5)] public string PostalCode { get; set; } = "";
+    public long? ShippingProviderId { get; set; }
     [MaxLength(60)] public string? Coupon { get; set; }
     [Range(0, 1000000)] public decimal Tokens { get; set; }
     public bool StockLoading { get; set; }
@@ -25,7 +32,7 @@ public class CommerceService(AmHerbDbContext db, PricingService pricing, RewardS
 {
     public async Task<Order> CheckoutAsync(CheckoutInput input, IReadOnlyCollection<SaleLine> lines, long? buyerId, long? sellerId,
         SalesChannel channel = SalesChannel.Store, string? cashierId = null, long? sessionId = null, decimal tendered = 0,
-        string paymentMethod = "Cash", string? externalId = null, decimal channelFee = 0, decimal affiliateFee = 0, string campaign = "", string creator = "", long? storeId = null)
+        string paymentMethod = "Cash", string? externalId = null, decimal channelFee = 0, decimal affiliateFee = 0, string campaign = "", string creator = "", long? storeId = null, byte[]? paymentSlip = null, string? slipReference = null)
     {
         if (string.IsNullOrWhiteSpace(input.Email)) input.Email = null;
         if (!Validator.TryValidateObject(input, new ValidationContext(input), [], true)) throw new BusinessException("ข้อมูลลูกค้าหรือคำสั่งซื้อไม่ถูกต้อง");
@@ -92,7 +99,13 @@ public class CommerceService(AmHerbDbContext db, PricingService pricing, RewardS
         var net = order.Merchandise - order.Discount;
         if (channel == SalesChannel.Store)
         {
-            if (string.IsNullOrWhiteSpace(input.Address)) throw new BusinessException("กรุณากรอกที่อยู่จัดส่ง");
+            order.Address = ThaiAddresses.Format(input);
+            var carrier = (await new DeliveryService(db).Options(storeId)).SingleOrDefault(x => x.Id == input.ShippingProviderId && x.Enabled)
+                ?? throw new BusinessException("กรุณาเลือกขนส่งที่ร้านเปิดให้บริการ");
+            order.SelectedCarrier = carrier.Name;
+            order.HouseNumber = input.HouseNumber.Trim(); order.AddressExtra = input.AddressExtra ?? "";
+            order.SubdistrictCode = input.SubdistrictCode; order.VillageCode = input.VillageCode;
+            order.VillageName = input.VillageName ?? ""; order.PostalCode = input.PostalCode;
             var shipping = await db.ShippingRules.Where(x => x.Active).OrderBy(x => x.Id).FirstAsync();
             order.Shipping = net >= shipping.FreeAbove ? 0 : shipping.Fee;
         }
@@ -113,6 +126,9 @@ public class CommerceService(AmHerbDbContext db, PricingService pricing, RewardS
         await rewards.ReserveAsync(order, eligibleTotal);
         var payment = new Payment { OrderId = order.Id, Amount = order.CashPayable, Provider = input.UseCredit&&order.CashPayable>0 ? "TradeCredit" : channel == SalesChannel.POS ? paymentMethod : "ManualBankTransfer" };
         db.Payments.Add(payment); await db.SaveChangesAsync();
+        order.SlipRequired = channel == SalesChannel.Store && payment.Provider == "ManualBankTransfer" && order.CashPayable > 0;
+        if (paymentSlip != null && payment.Provider == "ManualBankTransfer" && order.CashPayable > 0)
+            AddSlip(order, payment, slipReference ?? "", paymentSlip);
         // Cash POS can settle immediately; transfers require Finance confirmation.
         if(payment.Provider=="TradeCredit")
         {
@@ -168,6 +184,38 @@ public class CommerceService(AmHerbDbContext db, PricingService pricing, RewardS
         await inventory.FinalizeAsync(order, true); await rewards.ConsumeAsync(order);
         await new AccountingService(db).Sale(order, payment);
     }
+    private void AddSlip(Order order, Payment payment, string reference, byte[] data)
+    {
+        if (string.IsNullOrWhiteSpace(reference) || reference.Trim().Length > 200) throw new BusinessException("กรอกเลขอ้างอิงโอนเงินไม่เกิน 200 ตัวอักษร");
+        var type = MediaService.Validate(data);
+        db.PaymentSlips.Add(new PaymentSlip { OrderId = order.Id, Data = data, ContentType = type,
+            Hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(data)), Reference = reference.Trim(), CreatedAt = clock.GetUtcNow().UtcDateTime });
+        payment.SubmittedReference = reference.Trim(); payment.SubmittedAt = clock.GetUtcNow().UtcDateTime; payment.Status = "Submitted";
+    }
+    public async Task SubmitPaymentAsync(long orderId, string reference, byte[]? slip = null)
+    {
+        if (string.IsNullOrWhiteSpace(reference) || reference.Trim().Length > 200)
+            throw new BusinessException("กรุณาระบุเลขอ้างอิงการโอนไม่เกิน 200 ตัวอักษร");
+        await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+        var order = await db.Orders.SingleAsync(x => x.Id == orderId);
+        var payment = await db.Payments.SingleAsync(x => x.OrderId == orderId);
+        if (order.Status != OrderStatus.PendingPayment || payment.Provider != "ManualBankTransfer" || payment.Status is not ("Pending" or "Submitted"))
+            throw new BusinessException("รายการนี้ไม่อยู่ในขั้นตอนแจ้งโอนเงิน");
+        reference = reference.Trim();
+        if (slip == null && !await db.PaymentSlips.AnyAsync(x => x.OrderId == orderId)) throw new BusinessException("กรุณาแนบหรือถ่ายรูปสลิปโอนเงินก่อนส่งข้อมูล");
+        if (slip != null)
+        {
+            var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(slip));
+            if (!await db.PaymentSlips.AnyAsync(x => x.OrderId == orderId && x.Hash == hash && x.Reference == reference)) AddSlip(order, payment, reference, slip);
+        }
+        if (payment.Status == "Submitted" && payment.SubmittedReference == reference && !db.ChangeTracker.Entries<PaymentSlip>().Any(x => x.State == EntityState.Added)) return;
+        payment.SubmittedReference = reference;
+        payment.SubmittedAt = clock.GetUtcNow().UtcDateTime;
+        payment.Status = "Submitted";
+        audit.Add("Payment.Submit", orderId, reference);
+        await db.SaveChangesAsync();
+        await tx.CommitAsync();
+    }
     public async Task ConfirmPaymentAsync(long orderId, string reference, decimal amount, string reason)
     {
         if (string.IsNullOrWhiteSpace(reference) || reference.Length > 200) throw new BusinessException("กรุณาระบุเลขอ้างอิงการชำระเงิน");
@@ -178,10 +226,22 @@ public class CommerceService(AmHerbDbContext db, PricingService pricing, RewardS
         if(await db.CreditReceipts.AnyAsync(x=>x.ConfirmedReference==reference.Trim().ToUpperInvariant()))throw new BusinessException("เลขอ้างอิงโอนนี้ใช้รับชำระเครดิตแล้ว");
         if (payment.Status == "Confirmed") { if (payment.TransactionRef != reference || payment.Amount != amount) throw new BusinessException("รายการนี้ยืนยันด้วยข้อมูลอื่นแล้ว"); return; }
         if (amount != order.CashPayable) throw new BusinessException("ยอดเงินไม่ตรงกับคำสั่งซื้อ");
+        if (order.SlipRequired && !await db.PaymentSlips.AnyAsync(x => x.OrderId == orderId)) throw new BusinessException("คำสั่งซื้อออนไลน์ต้องแนบสลิปก่อนยืนยันรับเงิน");
         await SettleAsync(order, payment, reference);
         if (order.Channel == SalesChannel.POS) order.Status = OrderStatus.Delivered;
         audit.Add("Payment.Confirm", orderId, reason);
         await notifications.AddAsync(order.BuyerMemberId, "paid:" + orderId, $"ยืนยันชำระเงิน {order.Number}");
+        await db.SaveChangesAsync(); await tx.CommitAsync();
+    }
+    public async Task PrepareAsync(long orderId)
+    {
+        await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+        var order = await db.Orders.SingleAsync(x => x.Id == orderId);
+        if (order.Status == OrderStatus.Processing) return;
+        if (order.Status != OrderStatus.Paid) throw new BusinessException("ต้องยืนยันรับเงินก่อนเตรียมจัดส่ง");
+        order.Status = OrderStatus.Processing;
+        audit.Add("Order.Prepare", orderId, "ร้านเริ่มเตรียมสินค้า");
+        await notifications.AddAsync(order.BuyerMemberId, "prepare:" + orderId, $"{order.Number}: กำลังเตรียมสินค้า");
         await db.SaveChangesAsync(); await tx.CommitAsync();
     }
     public async Task FulfillAsync(long orderId, string carrier, string tracking, bool delivered, string reason)

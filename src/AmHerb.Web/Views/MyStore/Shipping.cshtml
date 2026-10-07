@@ -1,0 +1,11 @@
+@model List<CarrierChoice>
+@{ ViewData["Title"] = "ขนส่งของร้าน"; }
+<h1>ขนส่งของร้าน</h1><partial name="_StoreNav" />
+<p class="text-muted">เปิดเฉพาะบริการที่ร้านจัดส่งได้ ลูกค้าจะเลือกจากรายการนี้ก่อนสั่งซื้อ ค่าจัดส่งใช้เกณฑ์ของระบบตามยอดสินค้า</p>
+<div class="row g-4"><div class="col-lg-7"><div class="card p-4"><h2 class="h4">แสดงให้ลูกค้าเลือก</h2>
+@foreach (var carrier in Model) {
+<form asp-action="ShippingOption" method="post" class="d-flex justify-content-between align-items-center gap-3 border-bottom py-3">
+<input type="hidden" name="providerId" value="@carrier.Id" /><input type="hidden" name="enabled" value="@(!carrier.Enabled ? "true" : "false")" />
+<div><strong>@carrier.Name</strong><small class="d-block">@(carrier.Enabled ? "แสดงในหน้าชำระเงิน" : "ซ่อนจากหน้าชำระเงิน")</small></div>
+<button class="btn @(carrier.Enabled ? "btn-outline-secondary" : "btn-success")">@(carrier.Enabled ? "ซ่อน" : "เปิดใช้")</button></form>
+}</div></div><div class="col-lg-5"><form asp-action="AddCarrier" method="post" class="card p-4"><h2 class="h4">เพิ่มผู้ให้บริการ</h2><label for="carrier-name">ชื่อผู้ขนส่ง</label><input id="carrier-name" name="name" class="form-control my-3" maxlength="120" required /><button class="btn btn-success">เพิ่มและเปิดใช้งาน</button><p class="small text-muted mt-3 mb-0">ตรวจชื่อซ้ำโดยไม่แยกตัวพิมพ์ ช่องว่าง หรือเครื่องหมาย และตรวจชื่อเรียกของผู้ให้บริการหลัก</p></form></div></div>

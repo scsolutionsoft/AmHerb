@@ -35,14 +35,14 @@ public class AuditService(AmHerbDbContext db, Actor actor)
         db.AuditLogs.Add(new AuditLog { ActorId = actor.Id, Action = action, Subject = subject.ToString() ?? "", Detail = reason });
     }
 }
-public interface INotificationService { Task AddAsync(long? memberId, string key, string message); }
+public interface INotificationService { Task AddAsync(long? memberId, string key, string message, string? link = null); }
 public class NotificationService(AmHerbDbContext db) : INotificationService
 {
-    public async Task AddAsync(long? memberId, string key, string message)
+    public async Task AddAsync(long? memberId, string key, string message, string? link = null)
     {
         if (await db.Notifications.AnyAsync(x => x.EventKey == key)) return;
         string? userId = memberId == null ? null : await db.Members.Where(x => x.Id == memberId).Select(x => x.UserId).SingleAsync();
-        db.Notifications.Add(new Notification { UserId = userId, EventKey = key, Message = message });
+        db.Notifications.Add(new Notification { UserId = userId, EventKey = key, Message = message, Link = link ?? "" });
     }
 }
 public class MemberService(AmHerbDbContext db, AuditService audit, INotificationService notifications)

@@ -17,7 +17,7 @@ public class OrderAccess(AmHerbDbContext db, Actor actor, IAuthorizationService 
     {
         var context = accessor.HttpContext!;
         if (o.StoreId != null && await db.MemberStores.AnyAsync(x => x.Id == o.StoreId && x.Member.UserId == actor.Id && x.Member.Status == MemberStatus.Active)) return true;
-        if (o.CashierUserId == actor.Id || (o.BuyerMemberId != null && await db.Members.AnyAsync(x => x.Id == o.BuyerMemberId && x.UserId == actor.Id)) || (await auth.AuthorizeAsync(context.User, "Orders")).Succeeded || (await auth.AuthorizeAsync(context.User, "Refunds")).Succeeded) return true;
+        if (o.CashierUserId == actor.Id || (o.BuyerMemberId != null && await db.Members.AnyAsync(x => x.Id == o.BuyerMemberId && x.UserId == actor.Id)) || (await auth.AuthorizeAsync(context.User, "Payments")).Succeeded || (await auth.AuthorizeAsync(context.User, "Orders")).Succeeded || (await auth.AuthorizeAsync(context.User, "Refunds")).Succeeded) return true;
         var cookie = context.Request.Cookies["am.order." + o.PublicId];
         if (cookie == null) return false;
         try { return Protector.Unprotect(cookie) == o.PublicId.ToString(); }

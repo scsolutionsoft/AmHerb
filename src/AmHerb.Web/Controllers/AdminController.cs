@@ -1,4 +1,4 @@
-﻿using System.Data;
+using System.Data;
 using System.Globalization;
 using System.Text;
 using AmHerb.Web.Data;
@@ -18,11 +18,9 @@ public class AdminController(AmHerbDbContext db, IAuthorizationService authoriza
     private static string Permission(string section) => section switch { "Products" or "Prices" or "Promotions" => "Prices", "TokenRates" or "TokenPolicies" or "Ledger" => "Tokens", "Inventory" or "StockCard" or "Warehouses" => "Inventory", "Members" or "Tree" => "Members", "Orders" => "Orders", "Payments" or "Imports" => "Payments", "Returns" => "Refunds", "Reports" or "Dashboard" => "Reports", _ => "Settings" };
     public async Task<IActionResult> Index(string section = "Dashboard", string? q = null, int page = 1, DateTime? from = null, DateTime? to = null)
     {
-        if (section == "Dashboard" && !(await authorization.AuthorizeAsync(User, "Reports")).Succeeded)
-            foreach (var candidate in new[] { "Orders", "Inventory", "Members", "Products" })
-                if ((await authorization.AuthorizeAsync(User, Permission(candidate))).Succeeded) { section = candidate; break; }
+        if (section == "Dashboard") return RedirectToAction("Index", "Operations");
+        if (section == "Orders") return RedirectToAction("Orders", "Operations", new { q, page, from, to });
         if (!(await authorization.AuthorizeAsync(User, Permission(section))).Succeeded) return Forbid();
-        if (section == "Dashboard") return RedirectToAction("Overview", "Dashboard", new { from, to });
         var model = await PageAsync(section, q, Math.Max(1, page), from, to); return View(model);
     }
     private async Task<AdminPage> PageAsync(string section, string? q, int page, DateTime? from, DateTime? to)
@@ -68,7 +66,7 @@ public class AdminController(AmHerbDbContext db, IAuthorizationService authoriza
         {
             m.Headers = ["ID", "รหัส", "ชื่อ", "ผู้แนะนำ", "ประเภท", "สถานะ", "ตรวจสอบยอดติดลบ"];
             var data = await db.Members.Where(x => q == null || x.Code.Contains(q) || x.Name.Contains(q)).OrderBy(x => x.Id).Skip(skip).Take(100).ToListAsync();
-            m.Rows = data.Select(x => new TableRow([x.Id.ToString(), x.Code, x.Name, x.SponsorMemberId?.ToString() ?? "—", x.Type.ToString(), x.Status.ToString(), x.ReviewRequired.ToString()])).ToList();
+            m.Rows = data.Select(x => new TableRow([x.Id.ToString(), x.Code, x.Name, x.SponsorMemberId?.ToString() ?? "—", x.Type.ToString(), MemberLabels.Member(x.Status), x.ReviewRequired.ToString()], "/Operations/Member/" + x.Id)).ToList();
             if (section == "Tree") m.Tree = await db.Members.Select(x => new TreeNode(x.Id, x.SponsorMemberId, x.Code, x.Name, x.SponsorMemberId == null ? 0 : 1, x.Status)).ToListAsync();
         }
         else if (section == "Products")
@@ -114,7 +112,7 @@ public class AdminController(AmHerbDbContext db, IAuthorizationService authoriza
         else if (section == "Payments")
         {
             m.Headers = ["ID", "Order ID", "วิธี", "ยอด", "สถานะ", "อ้างอิง"];
-            m.Rows = (await db.Payments.OrderByDescending(x => x.Id).Skip(skip).Take(100).ToListAsync()).Select(x => new TableRow([x.Id.ToString(), x.OrderId.ToString(), x.Provider, N(x.Amount), x.Status, x.TransactionRef ?? "—"])).ToList();
+            m.Rows = (await db.Payments.Include(x => x.Order).OrderByDescending(x => x.Id).Skip(skip).Take(100).ToListAsync()).Select(x => new TableRow([x.Id.ToString(), x.OrderId.ToString(), x.Provider, N(x.Amount), MemberLabels.Payment(x.Status), x.TransactionRef ?? x.SubmittedReference ?? "—"], "/Orders/Detail/" + x.Order.PublicId)).ToList();
         }
         else if (section == "Returns")
         {

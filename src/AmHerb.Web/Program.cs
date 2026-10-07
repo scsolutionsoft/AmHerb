@@ -17,8 +17,10 @@ builder.Services.AddDbContext<AmHerbDbContext>(o => o.UseSqlServer(connection));
 builder.Services.AddDefaultIdentity<AppUser>(o =>
 {
     o.SignIn.RequireConfirmedAccount = true; o.User.RequireUniqueEmail = true;
-    o.Password.RequiredLength = 12; o.Lockout.MaxFailedAccessAttempts = 5; o.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
-}).AddRoles<IdentityRole>().AddEntityFrameworkStores<AmHerbDbContext>();
+    o.Password.RequiredLength = 5; o.Password.RequireDigit = false; o.Password.RequireLowercase = false;
+    o.Password.RequireUppercase = false; o.Password.RequireNonAlphanumeric = false;
+    o.Lockout.MaxFailedAccessAttempts = 5; o.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+}).AddRoles<IdentityRole>().AddEntityFrameworkStores<AmHerbDbContext>().AddPasswordValidator<SimplePasswordValidator>();
 builder.Services.ConfigureApplicationCookie(o => { o.Cookie.HttpOnly = true; o.Cookie.SameSite = SameSiteMode.Lax; o.Cookie.SecurePolicy = builder.Environment.IsDevelopment() ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always; o.ExpireTimeSpan = TimeSpan.FromHours(8); });
 builder.Services.ConfigureApplicationCookie(o =>
 {

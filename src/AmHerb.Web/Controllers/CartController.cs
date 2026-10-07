@@ -11,6 +11,7 @@ public class CartController(AmHerbDbContext db, CartService carts, CommerceServi
     public async Task<IActionResult> Index()
     {
         var model = new CartModel { Lines = await carts.LinesAsync(await carts.GetAsync()) };
+        model.Carriers = (await new DeliveryService(db).Options(null)).Where(x => x.Enabled).ToList();
         var shipping = await db.ShippingRules.Where(x => x.Active).OrderBy(x => x.Id).FirstAsync();
         model.ShippingFee = model.Total >= shipping.FreeAbove ? 0 : shipping.Fee;
         if (User.Identity?.IsAuthenticated == true)

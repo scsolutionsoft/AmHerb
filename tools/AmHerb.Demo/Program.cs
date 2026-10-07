@@ -107,10 +107,11 @@ public sealed class DemoRunner(IServiceProvider sp, DemoClock clock, Member root
     private ClaimsPrincipal Principal(Member member, string role = "Member") => new(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, member.UserId), new Claim(ClaimTypes.Name, member.User.UserName!), new Claim(ClaimTypes.Role, role)], "Demo"));
     private void Act(Member member, string role = "Member") => sp.GetRequiredService<IHttpContextAccessor>().HttpContext = new DefaultHttpContext { User = Principal(member, role) };
     private void Scenario(string title, string description, string url, string account, string expected) => scenarios.Add(new(title, description, url, account, expected));
-    private CheckoutInput Input(Member buyer, string key, string? coupon = null) => new() { Key = "demo:" + key, CustomerName = buyer.Name, Email = buyer.User.Email, Phone = buyer.Phone, Address = buyer.Address, Coupon = coupon };
+    private CheckoutInput Input(Member buyer, string key, string? coupon = null) => new() { Key = "demo:" + key, CustomerName = buyer.Name, Email = buyer.User.Email, Phone = buyer.Phone, HouseNumber = "99/1 (ข้อมูลจำลอง)", SubdistrictCode = "100101", PostalCode = "10200", ShippingProviderId = 1, Address = buyer.Address, Coupon = coupon };
     private async Task Finish(Order order, bool verify = true)
     {
         Act(root, "SuperAdmin");
+        if (order.Status == OrderStatus.PendingPayment && order.SlipRequired) await commerce.SubmitPaymentAsync(order.Id, "DEMO-NOT-A-REAL-TRANSFER-" + order.Id, Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII="));
         if (order.Status == OrderStatus.PendingPayment) await commerce.ConfirmPaymentAsync(order.Id, "DEMO-BANK-" + order.Id, order.CashPayable, "ข้อมูลจำลอง: ยืนยันเงินโอน ไม่มีการโอนเงินจริง");
         if (order.Status is OrderStatus.Paid or OrderStatus.Processing) await commerce.FulfillAsync(order.Id, "ขนส่งจำลอง", "DEMO-TRACK-" + order.Id, false, "ข้อมูลจำลอง: จัดส่ง");
         if (order.Status == OrderStatus.Shipped) await commerce.FulfillAsync(order.Id, "ขนส่งจำลอง", "DEMO-TRACK-" + order.Id, true, "ข้อมูลจำลอง: ส่งมอบ");
@@ -175,7 +176,7 @@ public sealed class DemoRunner(IServiceProvider sp, DemoClock clock, Member root
             new Promotion { Code = "DEMO-GIFT", Kind = PromotionKind.FreeGift, GiftSkuId = skus.First(x => x.Code == "DEMO-HERBAL-TEA").Id, MinimumSpend = 990, UsageLimit = 10000, EffectiveFrom = now.AddDays(-450), EffectiveTo = now.AddDays(90), Reason = "ของแถมจำลอง" });
         await db.SaveChangesAsync();
         clock.Now = now.AddDays(-400); Act(people[6]);
-        var oldOrder = await commerce.CheckoutAsync(new CheckoutInput { Key = "demo:expired-token", CustomerName = "ลูกค้าตัวอย่างเก่า", Email = "oldguest@amherb.example", Phone = "0000008888", Address = "ที่อยู่จำลองสำหรับยอดขายเก่า" }, [new(skus[0].Id, 1)], null, people[6].Id);
+        var oldOrder = await commerce.CheckoutAsync(new CheckoutInput { Key = "demo:expired-token", CustomerName = "ลูกค้าตัวอย่างเก่า", Email = "oldguest@amherb.example", Phone = "0000008888", HouseNumber = "99/1 (ข้อมูลจำลอง)", SubdistrictCode = "100101", PostalCode = "10200", ShippingProviderId = 1, Address = "ที่อยู่จำลองสำหรับยอดขายเก่า" }, [new(skus[0].Id, 1)], null, people[6].Id);
         await Finish(oldOrder);
         Scenario("Token หมดอายุ", "ยอดขายเก่ากว่า 12 เดือนถูกปลดล็อกและหมดอายุตามนโยบาย", "/Admin?section=Ledger", "admin@amherb.local", "พบ RELEASE และ EXPIRY ใน Ledger");
         Order? refundExample = null; Order? couponExample = null; Order? selfExample = null;

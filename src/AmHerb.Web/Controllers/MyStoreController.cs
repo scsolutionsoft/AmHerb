@@ -27,19 +27,59 @@ public class MyStoreController(AmHerbDbContext db, MemberStoreService stores, Me
         return View(new StoreProductsPage(store, await queries.CatalogAsync(q, warehouse: store.WarehouseId), await db.StoreProducts.Where(x => x.StoreId == store.Id && x.Enabled).Select(x => x.SkuId).ToListAsync(), q));
     }
     [HttpPost] public async Task<IActionResult> Product(long skuId, bool enabled) { await stores.SetProductAsync(actor.Id, skuId, enabled); return RedirectToAction(nameof(Products)); }
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public async Task<IActionResult> Orders(OrderStatus? status, int page = 1)
     {
         var store = await stores.RequireAsync(actor.Id); page = Math.Clamp(page, 1, 100000);
+        ViewBag.Carriers = (await new DeliveryService(db).Options(store.Id)).Where(x => x.Enabled).ToList();
+
         var query = db.Orders.Where(x => (x.StoreId == store.Id || (x.Channel == SalesChannel.POS && x.CashierUserId == actor.Id)) && (status == null || x.Status == status));
         ViewBag.Page = page; ViewBag.Status = status; var rows = await query.OrderByDescending(x => x.Id).Skip((page - 1) * 30).Take(31).ToListAsync(); ViewBag.HasNext = rows.Count > 30;
+        var orderIds = rows.Take(30).Select(x => x.Id).ToArray();
+        ViewBag.Shipments = await db.Shipments.AsNoTracking().Where(x => orderIds.Contains(x.OrderId)).ToListAsync();
         return View(rows.Take(30).ToList());
     }
     [HttpPost] public async Task<IActionResult> Ship(long id, string carrier, string tracking, bool delivered)
     {
         var order = await stores.RequireOrderAsync(actor.Id, id);
         if (order.StoreId == null || (carrier?.Length ?? 0) > 120 || (tracking?.Length ?? 0) > 120) throw new BusinessException("ข้อมูลจัดส่งไม่ถูกต้อง");
+        if (!delivered && carrier != order.SelectedCarrier && !(await new DeliveryService(db).Options(order.StoreId)).Any(x => x.Enabled && x.Name == carrier)) throw new BusinessException("เลือกผู้ขนส่งที่ร้านเปิดใช้งาน");
         await commerce.FulfillAsync(id, carrier ?? "", tracking ?? "", delivered, "เจ้าของร้านดำเนินการจัดส่ง");
         return RedirectToAction(nameof(Orders));
+    }
+    [HttpPost] public async Task<IActionResult> Prepare(long id)
+    {
+        var order = await stores.RequireOrderAsync(actor.Id, id);
+        if (order.StoreId == null) throw new BusinessException("รายการนี้ไม่ใช่คำสั่งซื้อออนไลน์ของร้าน");
+        await commerce.PrepareAsync(id);
+        return RedirectToAction(nameof(Orders));
+    }
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<IActionResult> ShippingLabel(long id)
+    {
+        var member = await members.RequireAsync(actor.Id);
+        var store = await db.MemberStores.AsNoTracking().SingleOrDefaultAsync(x => x.MemberId == member.Id);
+        if (store == null) return NotFound();
+        var order = await db.Orders.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id && x.StoreId == store.Id);
+        if (order == null) return NotFound();
+        return View(new ShippingLabelPage(order, store.Name, string.IsNullOrWhiteSpace(store.Phone) ? member.Phone : store.Phone, member.Address));
+    }
+    public async Task<IActionResult> Shipping()
+    {
+        var store = await stores.RequireAsync(actor.Id);
+        return View(await new DeliveryService(db).Options(store.Id));
+    }
+    [HttpPost] public async Task<IActionResult> ShippingOption(long providerId, bool enabled)
+    {
+        var store = await stores.RequireAsync(actor.Id);
+        await new DeliveryService(db).Set(store.Id, providerId, enabled);
+        return RedirectToAction(nameof(Shipping));
+    }
+    [HttpPost] public async Task<IActionResult> AddCarrier(string name)
+    {
+        var store = await stores.RequireAsync(actor.Id);
+        await new DeliveryService(db).Add(store.Id, name);
+        return RedirectToAction(nameof(Shipping));
     }
     public async Task<IActionResult> Qr()
     {

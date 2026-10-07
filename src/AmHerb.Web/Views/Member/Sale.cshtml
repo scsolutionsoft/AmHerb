@@ -1,0 +1,10 @@
+@model MemberSale
+@{ ViewData["Title"] = Model.Number; }
+<div class="page-heading"><h1 class="h3">ยอดขายจากการแนะนำ</h1><a class="btn btn-outline-success" href="/Member#orders">กลับคำสั่งซื้อ</a></div>
+<partial name="_LiveStatus" />
+<section class="card p-4" data-live-region="sale">
+<h2 class="h4">@Model.Number</h2><p>@Bangkok.Format(Model.CreatedAt)</p>
+<p>สถานะ: <strong>@MemberLabels.Order(Model.Status)</strong></p>
+<p>ยอดสินค้า: @Model.Merchandise.ToString("N2") บาท</p>
+</section>
+@section Scripts { <script src="~/js/member-live.js" asp-append-version="true"></script> }

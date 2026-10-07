@@ -31,6 +31,8 @@ public class Conversation : VersionedEntity
 {
     public long MemberId { get; set; }
     public Member Member { get; set; } = null!;
+    public long? OtherMemberId { get; set; }
+    public Member? OtherMember { get; set; }
     [MaxLength(180)] public string Subject { get; set; } = "";
     public ConversationStatus Status { get; set; }
     public DateTime UpdatedAt { get; set; }
@@ -44,6 +46,9 @@ public class ConversationMessage : Entity
     [MaxLength(450)] public string SenderUserId { get; set; } = "";
     public bool FromStaff { get; set; }
     [MaxLength(4000)] public string Body { get; set; } = "";
+    [MaxLength(240)] public string AttachmentName { get; set; } = "";
+    [MaxLength(100)] public string AttachmentContentType { get; set; } = "";
+    public byte[]? AttachmentData { get; set; }
     public DateTime SentAt { get; set; }
     public DateTime? ReadAt { get; set; }
 }

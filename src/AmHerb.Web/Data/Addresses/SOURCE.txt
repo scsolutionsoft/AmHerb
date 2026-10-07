@@ -1,0 +1,6 @@
+Source: https://github.com/open-admin-data/thailand-administrative-divisions
+Commit: eef739a534e26181c86073d69e9aeb527110cf1a
+License: CC BY 4.0 https://creativecommons.org/licenses/by/4.0/
+Copyright (c) 2026 jakkrapongt
+Adaptation: selected Thai names, identifiers, parent relationships and postal codes; flattened and deduplicated. Imported 2026-10-07.
+Rows: 88187

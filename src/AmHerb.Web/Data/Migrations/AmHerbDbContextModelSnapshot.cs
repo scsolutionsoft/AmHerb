@@ -332,6 +332,9 @@ namespace AmHerb.Web.Data.Migrations
                     b.Property<long>("MemberId")
                         .HasColumnType("bigint");
 
+                    b.Property<long?>("OtherMemberId")
+                        .HasColumnType("bigint");
+
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .IsRequired()
@@ -353,6 +356,8 @@ namespace AmHerb.Web.Data.Migrations
 
                     b.HasIndex("MemberId", "UpdatedAt");
 
+                    b.HasIndex("OtherMemberId", "UpdatedAt");
+
                     b.ToTable("Conversations");
                 });
 
@@ -363,6 +368,19 @@ namespace AmHerb.Web.Data.Migrations
                         .HasColumnType("bigint");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("AttachmentContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<byte[]>("AttachmentData")
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<string>("AttachmentName")
+                        .IsRequired()
+                        .HasMaxLength(240)
+                        .HasColumnType("nvarchar(240)");
 
                     b.Property<string>("Body")
                         .IsRequired()
@@ -1008,6 +1026,11 @@ namespace AmHerb.Web.Data.Migrations
                         .HasMaxLength(160)
                         .HasColumnType("nvarchar(160)");
 
+                    b.Property<string>("Link")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<string>("Message")
                         .IsRequired()
                         .HasMaxLength(1000)
@@ -1040,6 +1063,11 @@ namespace AmHerb.Web.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("AddressExtra")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
 
                     b.Property<decimal>("AffiliateFee")
                         .HasPrecision(18, 2)
@@ -1101,6 +1129,11 @@ namespace AmHerb.Web.Data.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<string>("HouseNumber")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<string>("IdempotencyKey")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -1123,6 +1156,11 @@ namespace AmHerb.Web.Data.Migrations
                     b.Property<long?>("PosSessionId")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("PostalCode")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .HasColumnType("nvarchar(5)");
+
                     b.Property<long?>("PromotionId")
                         .HasColumnType("bigint");
 
@@ -1138,12 +1176,20 @@ namespace AmHerb.Web.Data.Migrations
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
 
+                    b.Property<string>("SelectedCarrier")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
                     b.Property<long?>("SellerMemberId")
                         .HasColumnType("bigint");
 
                     b.Property<decimal>("Shipping")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<bool>("SlipRequired")
+                        .HasColumnType("bit");
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
@@ -1158,6 +1204,11 @@ namespace AmHerb.Web.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(160)
                         .HasColumnType("nvarchar(160)");
+
+                    b.Property<string>("SubdistrictCode")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("nvarchar(8)");
 
                     b.Property<decimal>("Tax")
                         .HasPrecision(18, 2)
@@ -1176,6 +1227,15 @@ namespace AmHerb.Web.Data.Migrations
 
                     b.Property<bool>("VerifiedRetailSale")
                         .HasColumnType("bit");
+
+                    b.Property<string>("VillageCode")
+                        .HasMaxLength(8)
+                        .HasColumnType("nvarchar(8)");
+
+                    b.Property<string>("VillageName")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
 
                     b.HasKey("Id");
 
@@ -1312,6 +1372,13 @@ namespace AmHerb.Web.Data.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
 
+                    b.Property<DateTime?>("SubmittedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SubmittedReference")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<decimal>("Tendered")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
@@ -1334,6 +1401,47 @@ namespace AmHerb.Web.Data.Migrations
                         .HasFilter("[TransactionRef] IS NOT NULL");
 
                     b.ToTable("Payments");
+                });
+
+            modelBuilder.Entity("AmHerb.Web.Domain.PaymentSlip", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<byte[]>("Data")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<string>("Hash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<long>("OrderId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Reference")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderId", "Hash", "Reference")
+                        .IsUnique();
+
+                    b.ToTable("PaymentSlips");
                 });
 
             modelBuilder.Entity("AmHerb.Web.Domain.PosRegister", b =>
@@ -2378,8 +2486,8 @@ namespace AmHerb.Web.Data.Migrations
 
                     b.Property<string>("Carrier")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
 
                     b.Property<long>("OrderId")
                         .HasColumnType("bigint");
@@ -2402,6 +2510,58 @@ namespace AmHerb.Web.Data.Migrations
                     b.HasIndex("OrderId");
 
                     b.ToTable("Shipments");
+                });
+
+            modelBuilder.Entity("AmHerb.Web.Domain.ShippingProvider", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NormalizedName")
+                        .IsUnique();
+
+                    b.ToTable("ShippingProviders");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1L,
+                            Name = "ไปรษณีย์ไทย",
+                            NormalizedName = "THAILANDPOST"
+                        },
+                        new
+                        {
+                            Id = 2L,
+                            Name = "Kerry / KEX",
+                            NormalizedName = "KEX"
+                        },
+                        new
+                        {
+                            Id = 3L,
+                            Name = "Flash Express",
+                            NormalizedName = "FLASH"
+                        },
+                        new
+                        {
+                            Id = 4L,
+                            Name = "J&T Express",
+                            NormalizedName = "JT"
+                        });
                 });
 
             modelBuilder.Entity("AmHerb.Web.Domain.ShippingRule", b =>
@@ -2661,6 +2821,10 @@ namespace AmHerb.Web.Data.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
+                    b.Property<decimal>("ChargeAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -2673,6 +2837,41 @@ namespace AmHerb.Web.Data.Migrations
                     b.Property<string>("DispatchedBy")
                         .HasMaxLength(450)
                         .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime?>("DueAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("FinancialApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FinancialApprovedBy")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("FinancialNote")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("FinancialStatus")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("PaidAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("PaymentMethod")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PoNumber")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("PriceTier")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
 
                     b.Property<int>("Quantity")
                         .HasColumnType("int");
@@ -2717,7 +2916,14 @@ namespace AmHerb.Web.Data.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<decimal>("UnitPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("PoNumber")
+                        .IsUnique();
 
                     b.HasIndex("RequestKey")
                         .IsUnique();
@@ -2730,6 +2936,8 @@ namespace AmHerb.Web.Data.Migrations
 
                     b.ToTable("StockTransfers", t =>
                         {
+                            t.HasCheckConstraint("CK_Transfer_Charge", "[UnitPrice] >= 0 AND [ChargeAmount] >= 0 AND [PaidAmount] >= 0 AND [PaidAmount] <= [ChargeAmount]");
+
                             t.HasCheckConstraint("CK_Transfer_Quantity", "[Quantity] > 0 AND [SourceWarehouseId] <> [DestinationWarehouseId]");
                         });
                 });
@@ -2808,6 +3016,33 @@ namespace AmHerb.Web.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("StoreProducts");
+                });
+
+            modelBuilder.Entity("AmHerb.Web.Domain.StoreShippingOption", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("bit");
+
+                    b.Property<long>("ShippingProviderId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("StoreId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ShippingProviderId");
+
+                    b.HasIndex("StoreId", "ShippingProviderId")
+                        .IsUnique();
+
+                    b.ToTable("StoreShippingOptions");
                 });
 
             modelBuilder.Entity("AmHerb.Web.Domain.SystemSetting", b =>
@@ -3295,6 +3530,89 @@ namespace AmHerb.Web.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("AmHerb.Web.Domain.TransferPayment", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Note")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime>("PaidAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Reference")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("RequestKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ReviewNote")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ReviewedBy")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<byte[]>("Slip")
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<string>("SlipType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<long>("StockTransferId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("SubmittedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SubmittedBy")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RequestKey")
+                        .IsUnique();
+
+                    b.HasIndex("StockTransferId", "Status");
+
+                    b.ToTable("TransferPayments", t =>
+                        {
+                            t.HasCheckConstraint("CK_TransferPayment_Amount", "[Amount] > 0");
+                        });
+
+                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
+                });
+
             modelBuilder.Entity("AmHerb.Web.Domain.Warehouse", b =>
                 {
                     b.Property<long>("Id")
@@ -3516,7 +3834,14 @@ namespace AmHerb.Web.Data.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("AmHerb.Web.Domain.Member", "OtherMember")
+                        .WithMany()
+                        .HasForeignKey("OtherMemberId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Member");
+
+                    b.Navigation("OtherMember");
                 });
 
             modelBuilder.Entity("AmHerb.Web.Domain.ConversationMessage", b =>
@@ -3783,6 +4108,17 @@ namespace AmHerb.Web.Data.Migrations
                     b.Navigation("Order");
                 });
 
+            modelBuilder.Entity("AmHerb.Web.Domain.PaymentSlip", b =>
+                {
+                    b.HasOne("AmHerb.Web.Domain.Order", "Order")
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Order");
+                });
+
             modelBuilder.Entity("AmHerb.Web.Domain.PosRegister", b =>
                 {
                     b.HasOne("AmHerb.Web.Domain.AppUser", "User")
@@ -3994,6 +4330,25 @@ namespace AmHerb.Web.Data.Migrations
                     b.Navigation("Store");
                 });
 
+            modelBuilder.Entity("AmHerb.Web.Domain.StoreShippingOption", b =>
+                {
+                    b.HasOne("AmHerb.Web.Domain.ShippingProvider", "ShippingProvider")
+                        .WithMany()
+                        .HasForeignKey("ShippingProviderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("AmHerb.Web.Domain.MemberStore", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ShippingProvider");
+
+                    b.Navigation("Store");
+                });
+
             modelBuilder.Entity("AmHerb.Web.Domain.TokenConsumption", b =>
                 {
                     b.HasOne("AmHerb.Web.Domain.TokenDistribution", "Distribution")
@@ -4102,6 +4457,17 @@ namespace AmHerb.Web.Data.Migrations
                     b.Navigation("StockTransfer");
                 });
 
+            modelBuilder.Entity("AmHerb.Web.Domain.TransferPayment", b =>
+                {
+                    b.HasOne("AmHerb.Web.Domain.StockTransfer", "StockTransfer")
+                        .WithMany("Payments")
+                        .HasForeignKey("StockTransferId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("StockTransfer");
+                });
+
             modelBuilder.Entity("AmHerb.Web.Domain.Warehouse", b =>
                 {
                     b.HasOne("AmHerb.Web.Domain.Member", "OwnerMember")
@@ -4196,6 +4562,8 @@ namespace AmHerb.Web.Data.Migrations
             modelBuilder.Entity("AmHerb.Web.Domain.StockTransfer", b =>
                 {
                     b.Navigation("Allocations");
+
+                    b.Navigation("Payments");
                 });
 #pragma warning restore 612, 618
         }

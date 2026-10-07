@@ -1,0 +1,9 @@
+@model string
+<div class="slip-upload border rounded p-3 my-3" data-slip-upload>
+<label class="form-label fw-bold" for="slip-file-@Model">รูปสลิปโอนเงิน</label>
+<input id="slip-file-@Model" name="@Model" type="file" accept="image/jpeg,image/png,image/webp" class="form-control" data-slip-file required="@(ViewData["SlipRequired"] as bool? == true)" />
+<button type="button" class="btn btn-outline-success mt-2" data-slip-camera>ถ่ายรูปสลิป</button>
+<p class="small text-muted mt-2 mb-0">เลือกจากเครื่องหรือถ่ายด้วยกล้อง · JPG, PNG, WebP ไม่เกิน 5 MB · ตรวจยอดเงินและชื่อบัญชีก่อนส่ง</p>
+<p class="text-danger small" role="alert" data-slip-error></p>
+<img data-slip-preview class="img-fluid rounded d-none" style="max-height:240px" alt="ตัวอย่างสลิปก่อนส่ง" />
+</div>

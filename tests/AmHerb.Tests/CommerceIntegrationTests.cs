@@ -6,6 +6,31 @@ namespace AmHerb.Tests;
 [Collection("SQL")]
 public class CommerceIntegrationTests(SqlFixture fixture)
 {
+    [SqlFact] public async Task Payment_submission_does_not_settle_or_debit_tokens_twice()
+    {
+        await using var h = new Harness(fixture); await h.InitializeAsync();
+        var buyer = await h.MemberAsync();
+        h.Db.TokenLedger.Add(new TokenLedger { MemberId = buyer.Id, Kind = LedgerKind.ADMIN_ADJUSTMENT, Status = TokenStatus.Available, AvailableDelta = 90, EventKey = "test:" + Guid.NewGuid() });
+        await h.Db.SaveChangesAsync();
+        await h.Inventory.ReceiveAsync(h.SkuId, 1, "PAY", h.Clock.Now.AddDays(-1), h.Clock.Now.AddYears(1), 3, 100, "Payment test");
+        var order = await h.Commerce.CheckoutAsync(new() { Key = Guid.NewGuid().ToString(), CustomerName = "Buyer", Phone = "0900000000", HouseNumber = "99/1", SubdistrictCode = "100101", PostalCode = "10200", ShippingProviderId = 1, Address = "Test", Tokens = 30 }, [new(h.SkuId, 1)], buyer.Id, null);
+        var reference = "BANK-" + Guid.NewGuid();
+        await h.Commerce.SubmitPaymentAsync(order.Id, reference, CheckoutTestData.Slip);
+        await h.Commerce.SubmitPaymentAsync(order.Id, reference, CheckoutTestData.Slip);
+        var payment = await h.Db.Payments.SingleAsync(x => x.OrderId == order.Id);
+        Assert.Equal("Submitted", payment.Status);
+        Assert.Null(payment.TransactionRef);
+        Assert.Null(payment.ConfirmedAt);
+        Assert.Equal(reference, payment.SubmittedReference);
+        Assert.Equal(OrderStatus.PendingPayment, order.Status);
+        Assert.Equal(new WalletBalance(0, 60, 30), await h.Rewards.BalanceAsync(buyer.Id));
+        Assert.Equal(1, await h.Db.AuditLogs.CountAsync(x => x.Action == "Payment.Submit" && x.Subject == order.Id.ToString()));
+        await h.Commerce.ConfirmPaymentAsync(order.Id, reference, order.CashPayable, "Verified bank receipt");
+        await h.Commerce.ConfirmPaymentAsync(order.Id, reference, order.CashPayable, "Replay");
+        Assert.Equal(new WalletBalance(0, 60, 0), await h.Rewards.BalanceAsync(buyer.Id));
+        Assert.Equal(1, await h.Db.TokenLedger.CountAsync(x => x.EventKey == "redeem:" + order.Id));
+        await Assert.ThrowsAsync<BusinessException>(() => h.Commerce.SubmitPaymentAsync(order.Id, reference));
+    }
     [SqlFact] public async Task Completed_retail_sale_snapshots_three_ancestors_and_releases_once()
     {
         await using var h = new Harness(fixture); await h.InitializeAsync();
@@ -44,11 +69,12 @@ public class CommerceIntegrationTests(SqlFixture fixture)
         await using var h = new Harness(fixture); await h.InitializeAsync(); var seller = await h.MemberAsync();
         var source = await h.SellAsync(seller); await h.Commerce.VerifyRetailAsync(source.Id, "Retail proof"); h.Clock.Now = h.Clock.Now.AddDays(15); await h.Rewards.RunDueAsync();
         await h.Inventory.ReceiveAsync(h.SkuId, 1, "STORE", DateTime.UtcNow.AddDays(-30), DateTime.UtcNow.AddYears(2), 20, 100, "Store stock");
-        CheckoutInput Input() => new() { Key = Guid.NewGuid().ToString("N"), CustomerName = "Member", Phone = "0901111111", Address = "Test address", Tokens = 90 };
+        CheckoutInput Input() => new() { Key = Guid.NewGuid().ToString("N"), CustomerName = "Member", Phone = "0901111111", HouseNumber = "99/1", SubdistrictCode = "100101", PostalCode = "10200", ShippingProviderId = 1, Address = "Test address", Tokens = 90 };
         var cancelled = await h.Commerce.CheckoutAsync(Input(), [new(h.SkuId, 1)], seller.Id, null);
         Assert.Equal(0, (await h.Rewards.BalanceAsync(seller.Id)).Available); Assert.Equal(90, (await h.Rewards.BalanceAsync(seller.Id)).Reserved);
         await h.Commerce.CancelAsync(cancelled.Id, "Test cancel"); Assert.Equal(90, (await h.Rewards.BalanceAsync(seller.Id)).Available);
         var redeemed = await h.Commerce.CheckoutAsync(Input(), [new(h.SkuId, 1)], seller.Id, null);
+        await h.Commerce.SubmitPaymentAsync(redeemed.Id, "TEST-SLIP", CheckoutTestData.Slip);
         await h.Commerce.ConfirmPaymentAsync(redeemed.Id, "TEST-" + Guid.NewGuid(), redeemed.CashPayable, "Bank evidence");
         Assert.Equal(0, (await h.Rewards.BalanceAsync(seller.Id)).Reserved);
         await h.Commerce.RequestReturnAsync(source.Items.Single().Id, 1, "Returned after spending rewards");

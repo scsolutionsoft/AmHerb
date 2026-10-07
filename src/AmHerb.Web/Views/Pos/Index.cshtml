@@ -1,11 +1,12 @@
-﻿@model PosModel
+@model PosModel
 @{ ViewData["Title"] = "POS ของฉัน"; }
 <div class="page-heading"><div><p class="eyebrow">AM HERB POINT OF SALE</p><h1>ขายหน้าร้าน</h1><p class="text-muted">@Model.Register.Name · จุดขาย #@Model.Register.Id · @Model.Register.Warehouse.Name</p></div><span class="badge @(Model.Session == null ? "text-bg-secondary" : "text-bg-success") p-3">@(Model.Session == null ? "ยังไม่เปิดกะ" : "กะ #" + Model.Session.Id + " เปิดขาย")</span></div>
+<partial name="_Guide" />
 @if (Model.Session == null)
 { <div class="card p-4 mb-4"><h2 class="h4">เริ่มกะขายใหม่</h2><p class="text-muted">นับเงินสดตั้งต้นในลิ้นชัก ก่อนรับรายการขาย</p><form method="post" asp-action="Open" class="d-flex gap-3 align-items-end"><div><label class="form-label" for="opening">เงินสดเปิดกะ</label><input id="opening" class="form-control" type="number" name="openingCash" min="0" step="0.01" value="0" required /></div><button class="btn btn-success">เปิดกะ</button></form></div> }
 else
 {
-<form method="post" asp-action="Sale" id="pos-sale"><input type="hidden" name="Key" value="@Model.Key" /><input type="hidden" name="SessionId" value="@Model.Session.Id" />
+<form method="post" asp-action="Sale" id="pos-sale" enctype="multipart/form-data"><input type="hidden" name="Key" value="@Model.Key" /><input type="hidden" name="SessionId" value="@Model.Session.Id" />
 <div class="row g-4"><div class="col-lg-8"><div class="card p-3 p-lg-4"><div class="d-flex justify-content-between mb-3"><h2 class="h5">เลือกสินค้า</h2><span class="text-muted small">สแกนบาร์โค้ดแล้วกด Enter</span></div><input id="pos-search" class="form-control form-control-lg mb-4" placeholder="ค้นหาชื่อ / SKU / สแกนบาร์โค้ด" aria-label="ค้นหาสินค้า POS" autocomplete="off" />
 <div class="row g-3" id="pos-products">@foreach (var p in Model.Products) { <div class="col-6 col-xl-4 pos-product" data-search="@p.Name @p.Code @p.Barcode" data-code="@p.Code" data-barcode="@p.Barcode"><div class="pos-tile"><button type="button" class="image-zoom thumb-button" data-image="/Media/Thumb/@p.Id" data-caption="@p.Name"><img class="circle-thumb" src="/Media/Thumb/@p.Id" alt="@p.Name" loading="lazy" /></button><span class="small text-muted">@p.Code</span><h3 class="h6 mt-2">@p.Name</h3><div class="d-flex justify-content-between my-3"><strong>฿@p.Price.ToString("N2")</strong><small>เหลือ @p.Stock</small></div><input name="SkuIds" type="hidden" value="@p.Id" /><label class="visually-hidden" for="sku-@p.Id">จำนวน @p.Name</label><div class="input-group"><button type="button" class="btn btn-outline-success pos-minus" aria-label="ลดจำนวน">−</button><input id="sku-@p.Id" name="Quantities" type="number" min="0" max="@p.Stock" value="0" class="form-control text-center pos-quantity" data-price="@p.Price.ToString(System.Globalization.CultureInfo.InvariantCulture)" /><button type="button" class="btn btn-outline-success pos-plus" aria-label="เพิ่มจำนวน">+</button></div></div></div> }</div></div></div>
 <div class="col-lg-4"><div class="card p-4 pos-summary"><p class="eyebrow">CHECKOUT</p><h2 class="h4">สรุปการขาย</h2><div class="pos-total my-3">฿<span id="pos-total">0.00</span></div><p class="small text-muted">ราคาก่อนส่วนลด ยอดจริงคำนวณโดยระบบเมื่อบันทึก</p>
@@ -15,7 +16,7 @@ else
 <label class="form-label" for="coupon">คูปอง</label><input id="coupon" name="Coupon" class="form-control mb-3" maxlength="60" />
 <details class="mb-3"><summary class="small">แลก Token ที่ลูกค้าอนุมัติ</summary><label class="form-label mt-2" for="tokens">จำนวน Token</label><input id="tokens" name="Tokens" type="number" min="0" step="0.01" value="0" class="form-control mb-2" /><label class="form-label" for="consent">รหัสอนุมัติครั้งเดียวจากลูกค้า</label><input id="consent" name="RedemptionCode" class="form-control" autocomplete="off" /><small class="text-muted">ลูกค้าออกโค้ดจากพื้นที่สมาชิก ระบุจุดขาย #@Model.Register.Id · อายุรหัส 5 นาที</small></details>
 <label class="form-label" for="method">วิธีชำระเงิน</label><select id="method" name="PaymentMethod" class="form-select mb-3"><option value="Cash">เงินสด</option><option value="ManualBankTransfer">โอนเงิน (รอตรวจสอบ)</option></select>
-<label class="form-label" for="tendered">รับเงินสด</label><input id="tendered" name="Tendered" type="number" min="0" step="0.01" class="form-control form-control-lg mb-2" value="0" />
+<div data-pos-transfer hidden><label for="SlipReference">เลขอ้างอิงการโอน (เมื่อแนบสลิป)</label><input id="SlipReference" name="SlipReference" class="form-control" maxlength="200"/><partial name="_SlipUpload" model='@("Slip")' /><p class="small">แนบตอนนี้หรือเปิดใบสั่งซื้อเพื่อแนบภายหลัง รอฝ่ายการเงินยืนยันรับเงิน</p></div><label class="form-label" for="tendered">รับเงินสด</label><input id="tendered" name="Tendered" type="number" min="0" step="0.01" class="form-control form-control-lg mb-2" value="0" />
 <div class="d-flex justify-content-between mb-3"><span>เงินทอนโดยประมาณ</span><strong id="pos-change">0.00</strong></div>
 <div class="form-check my-3"><input id="stock-loading" name="StockLoading" type="checkbox" value="true" class="form-check-input" /><label for="stock-loading" class="form-check-label small">ซื้อเพื่อสะสมสต็อก/ขายต่อ</label></div>
 <button class="btn btn-success btn-lg w-100" type="submit">รับชำระ / ออกใบเสร็จ</button><p class="small text-muted mt-3 mb-0">ขายปลีกที่ยืนยันแล้วจึงรับ Token · ไม่มีรางวัลจากการซื้อเอง</p></div></div></div></form>
@@ -26,3 +27,5 @@ else
 
 
 
+
+@section Scripts { <script src="~/js/slip-upload.js" asp-append-version="true"></script> }

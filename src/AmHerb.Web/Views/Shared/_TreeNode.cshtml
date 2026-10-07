@@ -1,5 +1,8 @@
 @model ValueTuple<TreeNode, IReadOnlyList<TreeNode>>
 @{ var node = Model.Item1; var children = Model.Item2.Where(x => x.ParentId == node.Id).ToArray(); }
-<details class="tree-node" open="@(node.Depth == 0)"><summary><strong>@node.Name</strong> <small class="text-muted">@node.Code · @node.Status · @children.Length คน</small></summary>
+<details class="tree-node" data-node-id="@node.Id" open="@(node.Depth == 0)"><summary><strong>@node.Name</strong> <small class="text-muted">@node.Code · @MemberLabels.Member(node.Status) · @children.Length คน</small>
+@if (node.Depth > 0 && ViewContext.RouteData.Values["controller"]?.ToString() == "Member") { <a class="btn btn-sm btn-outline-success my-2" href="/Member/Downline/@node.Id">ดูรายละเอียด @node.Code →</a> }
+</summary>
+@if(ViewContext.RouteData.Values["controller"]?.ToString() == "Admin") { <a class="btn btn-sm btn-outline-success" href="/Operations/Member/@node.Id">ตรวจสมาชิก / สายงาน →</a> }
 @foreach (var child in children) { <partial name="_TreeNode" model="(child, Model.Item2)" /> }
 </details>

@@ -59,12 +59,14 @@ public class InventoryService(AmHerbDbContext db, TimeProvider clock, AuditServi
         }
         return restoredCost;
     }
-    public async Task AdjustAsync(long batchId, int delta, InventoryKind kind, string reason)
+    public async Task AdjustAsync(long batchId, int delta, InventoryKind kind, string reason, string? expectedVersion = null)
     {
         if (kind is not (InventoryKind.Adjust or InventoryKind.Damage or InventoryKind.Expire) || delta == 0 || (kind != InventoryKind.Adjust && delta > 0)) throw new BusinessException("ประเภทปรับสต็อกไม่ถูกต้อง");
         await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
         var batch = await db.InventoryBatches.SingleAsync(x => x.Id == batchId);
-        if (batch.QtyAvailable + delta < 0) throw new BusinessException("ไม่สามารถปรับสต็อกติดลบ");
+        if (string.IsNullOrWhiteSpace(reason) || reason.Length > 1000) throw new BusinessException("ระบุเหตุผลปรับสต๊อกไม่เกิน 1,000 ตัวอักษร");
+        if (expectedVersion != null && expectedVersion != Convert.ToBase64String(batch.RowVersion)) throw new BusinessException("ยอดสต๊อกเปลี่ยนแล้ว กรุณาโหลดข้อมูลล่าสุดและตรวจจำนวนอีกครั้ง");
+        if ((long)batch.QtyAvailable + delta < 0 || (long)batch.QtyAvailable + delta > int.MaxValue) throw new BusinessException("จำนวนหลังปรับไม่ถูกต้อง หรือปรับลดเกินยอดที่ยังไม่จอง");
         batch.QtyAvailable += delta;
         db.InventoryTransactions.Add(new InventoryTransaction { InventoryBatchId = batchId, Kind = kind, Quantity = delta, Reason = reason });
         audit.Add("Inventory.Adjust", batchId, reason); await db.SaveChangesAsync(); await tx.CommitAsync();

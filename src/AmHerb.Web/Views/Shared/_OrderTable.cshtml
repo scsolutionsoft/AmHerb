@@ -1,5 +1,6 @@
 @model IEnumerable<Order>
+@{ var payments = ViewData["PaymentStatuses"] as Dictionary<long, string>; }
 <div class="table-responsive card"><table class="table mb-0"><thead><tr><th>คำสั่งซื้อ</th><th>วันที่</th><th>ช่องทาง</th><th>สถานะ</th><th class="text-end">ยอดชำระ</th></tr></thead><tbody>
-@foreach (var o in Model) { <tr><td><a href="/Orders/Detail/@o.PublicId">@o.Number</a></td><td>@Bangkok.Format(o.CreatedAt)</td><td>@o.Channel</td><td><span class="badge status-@o.Status">@o.Status</span></td><td class="text-end">@o.CashPayable.ToString("N2")</td></tr> }
+@foreach (var o in Model) { <tr><td><a href="/Orders/Detail/@o.PublicId">@o.Number</a>@if (o.Status == OrderStatus.PendingPayment) { <small class="d-block">คลิกเพื่อชำระเงิน / ติดตาม</small> }</td><td>@Bangkok.Format(o.CreatedAt)</td><td>@o.Channel</td><td><span class="badge status-@o.Status">@(o.Status == OrderStatus.PendingPayment && payments?.GetValueOrDefault(o.Id) == "Submitted" ? MemberLabels.Payment("Submitted") : MemberLabels.Order(o.Status))</span></td><td class="text-end">@o.CashPayable.ToString("N2")</td></tr> }
 @if (!Model.Any()) { <tr><td colspan="5" class="text-center text-muted py-4">ยังไม่มีรายการ</td></tr> }
 </tbody></table></div>

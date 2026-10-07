@@ -164,6 +164,14 @@ public class CartItem : Entity
 }
 public class Order : VersionedEntity
 {
+    [MaxLength(100)] public string HouseNumber { get; set; } = "";
+    [MaxLength(300)] public string AddressExtra { get; set; } = "";
+    [MaxLength(8)] public string SubdistrictCode { get; set; } = "";
+    [MaxLength(8)] public string? VillageCode { get; set; }
+    [MaxLength(160)] public string VillageName { get; set; } = "";
+    [MaxLength(5)] public string PostalCode { get; set; } = "";
+    [MaxLength(120)] public string SelectedCarrier { get; set; } = "";
+    public bool SlipRequired { get; set; }
     public long? StoreId { get; set; }
     public MemberStore? Store { get; set; }
     [MaxLength(160)] public string StoreName { get; set; } = "";
@@ -237,6 +245,8 @@ public class StockAllocation : Entity
 }
 public class Payment : Entity
 {
+    [MaxLength(200)] public string? SubmittedReference { get; set; }
+    public DateTime? SubmittedAt { get; set; }
     public long OrderId { get; set; }
     public Order Order { get; set; } = null!;
     [MaxLength(50)] public string Provider { get; set; } = "ManualBankTransfer";
@@ -317,7 +327,7 @@ public class Shipment : Entity
 {
     public long OrderId { get; set; }
     public Order Order { get; set; } = null!;
-    [MaxLength(100)] public string Carrier { get; set; } = "";
+    [MaxLength(120)] public string Carrier { get; set; } = "";
     [MaxLength(150)] public string TrackingNumber { get; set; } = "";
     [MaxLength(30)] public string Status { get; set; } = "Shipped";
     public DateTime ShippedAt { get; set; } = DateTime.UtcNow;
@@ -367,6 +377,7 @@ public class Notification : Entity
     [MaxLength(450)] public string? UserId { get; set; }
     [MaxLength(160)] public string EventKey { get; set; } = "";
     [MaxLength(1000)] public string Message { get; set; } = "";
+    [MaxLength(500)] public string Link { get; set; } = "";
     public bool Read { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

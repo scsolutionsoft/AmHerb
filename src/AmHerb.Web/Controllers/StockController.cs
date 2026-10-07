@@ -28,6 +28,26 @@ public class StockPage
 [Authorize]
 public class StockController(AmHerbDbContext db, AuditService audit, TimeProvider clock) : Controller
 {
+    [HttpGet, Authorize(Policy = "Inventory")]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<IActionResult> Adjustment(long? batchId, long? skuId, long? warehouseId)
+    {
+        if (batchId == null && (skuId == null || warehouseId == null)) return BadRequest();
+        var lots = await db.InventoryBatches.AsNoTracking().Where(x => batchId != null ? x.Id == batchId : x.SkuId == skuId && x.WarehouseId == warehouseId)
+            .OrderBy(x => x.ExpDate).Select(x => new { x.Id, x.LotNo, Product = x.Sku.Product.Name, Sku = x.Sku.Code, Warehouse = x.Warehouse.Name, x.QtyAvailable, x.QtyReserved, x.ExpDate, x.RowVersion }).ToListAsync();
+        return Json(lots.Select(x => new { x.Id, x.LotNo, x.Product, x.Sku, x.Warehouse, Available = x.QtyAvailable, Reserved = x.QtyReserved, Expiry = x.ExpDate.ToString("dd/MM/yyyy"), Version = Convert.ToBase64String(x.RowVersion) }));
+    }
+    [HttpPost, Authorize(Policy = "Inventory")]
+    public async Task<IActionResult> Adjust(long batchId, int delta, InventoryKind kind, string reason, string version)
+    {
+        if (string.IsNullOrWhiteSpace(version)) return BadRequest(new { message = "โหลดข้อมูลล็อตก่อนปรับยอด" });
+        if (!await db.InventoryBatches.AnyAsync(x => x.Id == batchId)) return NotFound(new { message = "ไม่พบล็อตสินค้า" });
+        try { await new InventoryService(db, clock, audit).AdjustAsync(batchId, delta, kind, reason, version); }
+        catch (BusinessException e) { return Conflict(new { message = e.Message }); }
+        catch (DbUpdateConcurrencyException) { return Conflict(new { message = "ยอดสต๊อกเปลี่ยนแล้ว กรุณาโหลดข้อมูลล่าสุด" }); }
+        TempData["Success"] = "ปรับสต๊อกและบันทึกประวัติเรียบร้อยแล้ว";
+        return Json(new { success = true });
+    }
     public static bool CanSeeAll(ClaimsPrincipal user) => new[] { "SuperAdmin", "Admin", "Warehouse", "Finance", "Marketing" }.Any(user.IsInRole);
     public static IQueryable<Warehouse> Visible(AmHerbDbContext db, ClaimsPrincipal user)
     {
@@ -83,6 +103,5 @@ public class StockController(AmHerbDbContext db, AuditService audit, TimeProvide
         return RedirectToAction(nameof(Index), new { warehouseId = warehouse.Id });
     }
 }
-
 
 

@@ -31,6 +31,8 @@ public class InputValidationFilter : IActionFilter
 {
     public void OnActionExecuting(ActionExecutingContext context)
     {
+        // Registration redisplays field errors and the selected sponsor in its wizard.
+        if (context.Controller is AmHerb.Web.Controllers.AccountController && context.ActionDescriptor.RouteValues["action"] == "Register") return;
         if (!context.ModelState.IsValid && context.HttpContext.Request.Method != "GET")
             context.Result = BusinessExceptionFilter.ErrorResult(context.HttpContext, "ข้อมูลไม่ถูกต้อง: " + string.Join("; ", context.ModelState.Where(x => x.Value?.Errors.Count > 0).Select(x => x.Key)), 400);
     }

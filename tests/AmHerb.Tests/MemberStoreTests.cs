@@ -12,7 +12,7 @@ public class MemberStoreTests(SqlFixture fixture)
 {
     private static Actor ActorFor(string userId) => new(new HttpContextAccessor { HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim(ClaimTypes.NameIdentifier, userId) }, "test")) } });
     private static MemberStoreService Service(Harness h, Member member) => new(h.Db, h.Members, new AuditService(h.Db, ActorFor(member.UserId)));
-    private static CheckoutInput Input(string? key = null) => new() { Key = key ?? Guid.NewGuid().ToString("N"), CustomerName = "Store buyer", Phone = "0801234567", Address = "Test address" };
+    private static CheckoutInput Input(string? key = null) => new() { Key = key ?? Guid.NewGuid().ToString("N"), CustomerName = "Store buyer", Phone = "0801234567", HouseNumber = "99/1", SubdistrictCode = "100101", PostalCode = "10200", ShippingProviderId = 1, Address = "Test address" };
     private static async Task<MemberStore> Store(Harness h, Member member, int stock = 4)
     {
         var service = Service(h, member); var store = await service.CreateAsync(member.UserId);

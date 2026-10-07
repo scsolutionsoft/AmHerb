@@ -1,5 +1,5 @@
 @page
 @functions {
-    public Microsoft.AspNetCore.Mvc.IActionResult OnGet() => Redirect("/Account/Register");
+    public Microsoft.AspNetCore.Mvc.IActionResult OnGet(string? sponsorCode) => Redirect("/Account/Register" + (string.IsNullOrWhiteSpace(sponsorCode) ? "" : "?sponsorCode=" + System.Uri.EscapeDataString(sponsorCode)));
     public Microsoft.AspNetCore.Mvc.IActionResult OnPost() => Redirect("/Account/Register");
 }

@@ -1,4 +1,4 @@
-﻿using AmHerb.Web.Domain;
+using AmHerb.Web.Domain;
 using AmHerb.Web.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -21,7 +21,7 @@ public class CreditTests(SqlFixture fixture)
         await Task.WhenAll(Review(),Review());await using var db=fixture.Db();Assert.Equal(100,await db.CreditAllocations.Where(x=>x.CreditReceiptId==id).SumAsync(x=>x.Amount));Assert.Equal(1,await db.JournalEntries.CountAsync(x=>x.EventKey.StartsWith("credit-receipt:"+id+":")));
     }
     private static CreditService Service(Harness h)=>new(h.Db,new AuditService(h.Db,new Actor(new HttpContextAccessor())),h.Clock,new NotificationService(h.Db));
-    private static CheckoutInput Input()=>new(){CustomerName="Credit buyer",Phone="0900001111",Address="Bangkok",UseCredit=true};
+    private static CheckoutInput Input()=>new(){CustomerName="Credit buyer",Phone="0900001111",HouseNumber = "99/1", SubdistrictCode = "100101", PostalCode = "10200", ShippingProviderId = 1, Address="Bangkok",UseCredit=true};
     private static async Task<Member> Setup(Harness h,decimal limit=10000)
     {
         await h.InitializeAsync(price:1000);await h.Inventory.ReceiveAsync(h.SkuId,1,"CREDIT",h.Clock.Now.AddDays(-1),h.Clock.Now.AddYears(1),20,200,"credit test");

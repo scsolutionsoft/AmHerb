@@ -1,0 +1,15 @@
+<section class="card p-4 mb-4 member-start" aria-labelledby="start-title">
+<div class="d-flex flex-wrap justify-content-between gap-3 mb-3"><div><p class="eyebrow">MEMBER WORKSPACE</p><h2 id="start-title" class="h3">วันนี้ต้องการทำอะไร?</h2><p class="text-muted mb-0">เลือกงานเพื่อเริ่มใช้งาน หรือเปิดตัวช่วยแนะนำทีละขั้น</p></div><a class="btn btn-outline-success align-self-start" href="/MyStore/Orders">จัดการออเดอร์ / พิมพ์ A5 →</a></div>
+<div class="row g-3">
+@foreach(var item in new[] {
+    ("store", "เปิดร้านออนไลน์", "ตั้งค่าร้าน เลือกสินค้าและผู้ขนส่ง พร้อมแชร์ลิงก์ให้ลูกค้า", "/MyStore"),
+    ("buy", "ซื้อสินค้าและชำระเงิน", "กรอกที่อยู่ เลือกขนส่ง แนบสลิป และติดตามออเดอร์", "/Catalog"),
+    ("pos", "ขายหน้าร้าน POS", "เลือกสินค้า รับชำระ และถ่ายภาพสลิปโอนเงิน", "/Pos"),
+    ("ship", "แพ็กและจัดส่งสินค้า", "ตรวจออเดอร์ พิมพ์ใบจ่าหน้า A5 และบันทึกเลขพัสดุ", "/MyStore/Orders"),
+    ("token", "ตรวจสอบ Token", "ดูยอดพร้อมใช้ ยอดจอง และประวัติการใช้ Token", "/Member#wallet"),
+    ("team", "ดูเครือข่ายและยอดขาย", "แชร์ลิงก์แนะนำ ดูดาวน์ไลน์ และตรวจยอดขาย", "/Member#network")
+}) {
+<div class="col-md-6 col-xl-4"><div class="border rounded-4 p-3 h-100 d-flex flex-column"><h3 class="h5">@item.Item2</h3><p class="text-muted small flex-grow-1">@item.Item3</p><div class="d-flex flex-wrap gap-2"><a class="btn btn-success btn-sm" href="@item.Item4">ไปใช้งาน</a><button type="button" class="btn btn-outline-success btn-sm" data-member-guide="@item.Item1" data-bs-toggle="modal" data-bs-target="#member-guide">แนะนำทีละขั้น</button></div></div></div>
+}
+</div><noscript><p class="mt-3">เปิดแต่ละฟังก์ชันผ่านปุ่ม “ไปใช้งาน” เพื่อเริ่มต้น</p></noscript></section>
+<div class="modal fade" id="member-guide" tabindex="-1" aria-labelledby="member-guide-title" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content rounded-4"><div class="modal-header"><h2 id="member-guide-title" class="modal-title h5">คู่มือสมาชิก</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิดคู่มือ"></button></div><div class="modal-body p-4"><p class="text-success small" id="guide-progress" aria-live="polite"></p><div class="progress mb-4" role="progressbar" aria-label="ความคืบหน้าคู่มือ" aria-valuemin="0" aria-valuemax="100"><div id="guide-bar" class="progress-bar bg-success"></div></div><h3 class="h4" id="guide-step-title" tabindex="-1"></h3><p id="guide-description"></p><a id="guide-action" class="btn btn-outline-success" href="/Member">เปิดหน้าที่เกี่ยวข้อง →</a></div><div class="modal-footer justify-content-between"><button id="guide-back" class="btn btn-light" type="button">ย้อนกลับ</button><button id="guide-next" class="btn btn-success" type="button">ถัดไป</button></div></div></div></div>

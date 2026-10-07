@@ -1,0 +1,9 @@
+# Member registration
+
+`/Account/Join` explains new registration, existing accounts, email confirmation and requests to change an existing sponsor. New registrations use `/Account/Register`, a three-step form: personal information, password, review of identity and sponsor. Without JavaScript, all form sections remain usable.
+
+Members share the invitation URL shown under `/Member#network`: `/Account/Register?sponsorCode={ReferralCode}`. The separate product referral URL remains available. Registration resolves an unexpired product-referral visit cookie when no explicit sponsor was supplied. `withoutSponsor=true` explicitly chooses no sponsor. The resolved code is posted with the form; POST rechecks sponsor availability before creating the account. Invalid codes are shown as errors, never silently changed to a no-sponsor registration. Existing signed-in users are routed to the explanation page, without changing their sponsor.
+
+Passwords newly created or changed through Identity must be 5–10 characters, with no uppercase/digit/symbol requirements. Whitespace-only passwords are rejected. Registration, reset, change, and set-password pages use the same limits. Login accepts existing passwords of other lengths; this change does not rewrite existing hashes. Email confirmation and login lockout remain enabled. Admin CLI setup uses the same policy. No database schema migration is needed.
+
+Verification: RegistrationPasswordTests cover boundaries and simple passwords. MemberStoreBrowserTests cover referral resolution/opt-out/invalid codes, the wizard, sponsor binding, email-confirmation state, five-character login, ten-character password changes, and invalid reset tokens. Screenshots are written to artifacts/screenshots. Real delivery of confirmation/reset emails requires configured SMTP (or the existing development demo mailbox).

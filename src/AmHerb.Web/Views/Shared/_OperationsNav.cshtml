@@ -1,0 +1,5 @@
+@inject Microsoft.AspNetCore.Authorization.IAuthorizationService OperationsAuthorization
+<nav class="d-flex flex-wrap gap-2 mb-4 no-print" aria-label="ศูนย์บริหาร"><a class="btn btn-outline-success" href="/Operations">ศูนย์บริหาร</a>
+@foreach(var item in new[] { ("Orders", "/Operations/Orders", "แยกออเดอร์"), ("Orders", "/Operations/Orders?shipping=true", "จัดส่ง / ใบปะหน้า"), ("Inventory", "/Stock", "คลังสินค้า"), ("Inventory", "/Transfers", "เบิก / โอนคลัง"), ("Inventory", "/Admin?section=Inventory", "รับเข้า / ปรับล็อต"), ("Members", "/Admin?section=Members", "สมาชิก / สายงาน"), ("Tokens", "/Operations/Tokens", "Token รายสมาชิก"), ("Payments", "/Operations/Clearing", "ติดตามเคลียร์ยอด"), ("Payments", "/Accounting", "บัญชี"), ("Reports", "/Dashboard/Overview", "รายงานยอดขาย"), ("Prices", "/Admin?section=Products", "สินค้า / ราคา") }) {
+if((await OperationsAuthorization.AuthorizeAsync(User, item.Item1)).Succeeded) { <a class="btn btn-outline-success" href="@item.Item2">@item.Item3</a> }
+}</nav>

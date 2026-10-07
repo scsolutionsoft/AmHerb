@@ -31,6 +31,7 @@ public sealed class AmHerbDbContext(DbContextOptions<AmHerbDbContext> options)
     public DbSet<JournalLine> JournalLines => Set<JournalLine>();
     public DbSet<StockTransfer> StockTransfers => Set<StockTransfer>();
     public DbSet<TransferAllocation> TransferAllocations => Set<TransferAllocation>();
+    public DbSet<TransferPayment> TransferPayments => Set<TransferPayment>();
     public DbSet<InventoryBatch> InventoryBatches => Set<InventoryBatch>();
     public DbSet<InventoryTransaction> InventoryTransactions => Set<InventoryTransaction>();
     public DbSet<Cart> Carts => Set<Cart>();
@@ -39,6 +40,9 @@ public sealed class AmHerbDbContext(DbContextOptions<AmHerbDbContext> options)
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     public DbSet<StockAllocation> StockAllocations => Set<StockAllocation>();
     public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<PaymentSlip> PaymentSlips => Set<PaymentSlip>();
+    public DbSet<ShippingProvider> ShippingProviders => Set<ShippingProvider>();
+    public DbSet<StoreShippingOption> StoreShippingOptions => Set<StoreShippingOption>();
     public DbSet<TokenDistribution> TokenDistributions => Set<TokenDistribution>();
     public DbSet<TokenLedger> TokenLedger => Set<TokenLedger>();
     public DbSet<TokenConsumption> TokenConsumptions => Set<TokenConsumption>();
@@ -79,15 +83,22 @@ public sealed class AmHerbDbContext(DbContextOptions<AmHerbDbContext> options)
         b.Entity<ContentPost>().HasIndex(x => new { x.Published, x.StartsAt, x.EndsAt });
         b.Entity<ConversationMessage>().HasIndex(x => x.RequestKey).IsUnique();
         b.Entity<Conversation>().HasIndex(x => new { x.MemberId, x.UpdatedAt });
+        b.Entity<Conversation>().HasIndex(x => new { x.OtherMemberId, x.UpdatedAt });
+        b.Entity<Conversation>().HasOne(x => x.OtherMember).WithMany().HasForeignKey(x => x.OtherMemberId).OnDelete(DeleteBehavior.Restrict);
         b.Entity<JournalEntry>().HasIndex(x => x.EventKey).IsUnique();
         b.Entity<JournalLine>().ToTable(t => t.HasCheckConstraint("CK_JournalLine_Amount", "([Debit] > 0 AND [Credit] = 0) OR ([Credit] > 0 AND [Debit] = 0)"));
         b.Entity<StockTransfer>().HasIndex(x => x.RequestKey).IsUnique();
+        b.Entity<StockTransfer>().HasIndex(x => x.PoNumber).IsUnique();
         b.Entity<StockTransfer>().HasIndex(x => new { x.DestinationWarehouseId, x.Status });
         b.Entity<StockTransfer>().HasOne(x => x.SourceWarehouse).WithMany().HasForeignKey(x => x.SourceWarehouseId);
         b.Entity<StockTransfer>().HasOne(x => x.DestinationWarehouse).WithMany().HasForeignKey(x => x.DestinationWarehouseId);
         b.Entity<StockTransfer>().ToTable(t => t.HasCheckConstraint("CK_Transfer_Quantity", "[Quantity] > 0 AND [SourceWarehouseId] <> [DestinationWarehouseId]"));
         b.Entity<TransferAllocation>().HasIndex(x => new { x.StockTransferId, x.SourceBatchId }).IsUnique();
         b.Entity<TransferAllocation>().ToTable(t => t.HasCheckConstraint("CK_TransferAllocation_Quantity", "[Quantity] > 0"));
+        b.Entity<TransferPayment>().HasIndex(x => x.RequestKey).IsUnique();
+        b.Entity<TransferPayment>().HasIndex(x => new { x.StockTransferId, x.Status });
+        b.Entity<TransferPayment>().ToTable(t => t.HasCheckConstraint("CK_TransferPayment_Amount", "[Amount] > 0"));
+        b.Entity<StockTransfer>().ToTable(t => t.HasCheckConstraint("CK_Transfer_Charge", "[UnitPrice] >= 0 AND [ChargeAmount] >= 0 AND [PaidAmount] >= 0 AND [PaidAmount] <= [ChargeAmount]"));
         b.Entity<Member>().HasOne(x => x.Sponsor).WithMany().HasForeignKey(x => x.SponsorMemberId);
         b.Entity<MemberClosure>().HasKey(x => new { x.AncestorMemberId, x.DescendantMemberId });
         b.Entity<MemberClosure>().HasOne(x => x.Ancestor).WithMany().HasForeignKey(x => x.AncestorMemberId);
@@ -107,6 +118,14 @@ public sealed class AmHerbDbContext(DbContextOptions<AmHerbDbContext> options)
         b.Entity<Order>().HasIndex(x => new { x.Channel, x.ExternalOrderId }).IsUnique().HasFilter("[ExternalOrderId] IS NOT NULL");
         b.Entity<Order>().HasIndex(x => new { x.CashierUserId, x.CreatedAt });
         b.Entity<Payment>().HasIndex(x => new { x.Provider, x.TransactionRef }).IsUnique().HasFilter("[TransactionRef] IS NOT NULL");
+        b.Entity<ShippingProvider>().HasIndex(x => x.NormalizedName).IsUnique();
+        b.Entity<StoreShippingOption>().HasIndex(x => new { x.StoreId, x.ShippingProviderId }).IsUnique();
+        b.Entity<PaymentSlip>().HasIndex(x => new { x.OrderId, x.Hash, x.Reference }).IsUnique();
+        b.Entity<ShippingProvider>().HasData(
+            new ShippingProvider { Id = 1, Name = "ไปรษณีย์ไทย", NormalizedName = "THAILANDPOST" },
+            new ShippingProvider { Id = 2, Name = "Kerry / KEX", NormalizedName = "KEX" },
+            new ShippingProvider { Id = 3, Name = "Flash Express", NormalizedName = "FLASH" },
+            new ShippingProvider { Id = 4, Name = "J&T Express", NormalizedName = "JT" });
         b.Entity<TokenLedger>().HasIndex(x => x.EventKey).IsUnique();
         b.Entity<TokenLedger>().HasIndex(x => new { x.MemberId, x.PostedAt });
         b.Entity<TokenDistribution>().HasIndex(x => new { x.OrderItemId, x.MemberId, x.Level }).IsUnique();
@@ -150,6 +169,7 @@ public sealed class AmHerbDbContext(DbContextOptions<AmHerbDbContext> options)
             b.Entity<JournalLine>().ToTable(t => t.UseSqlOutputClause(false));
             b.Entity<CreditAllocation>().ToTable(t=>t.UseSqlOutputClause(false));
             b.Entity<CreditReceipt>().ToTable(t=>t.UseSqlOutputClause(false));
+            b.Entity<TransferPayment>().ToTable(t=>t.UseSqlOutputClause(false));
         }
         SeedData.Configure(b);
     }

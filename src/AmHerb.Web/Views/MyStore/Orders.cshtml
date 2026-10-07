@@ -1,12 +1,27 @@
 @model List<Order>
-@{ ViewData["Title"] = "คำสั่งซื้อร้าน"; }
-<h1>คำสั่งซื้อร้าน</h1><partial name="_StoreNav"/>
-<form method="get" class="d-flex gap-2 mb-3"><select name="status" class="form-select" aria-label="สถานะ"><option value="">ทุกสถานะ</option>@foreach(var s in Enum.GetValues<OrderStatus>()) { <option value="@s" selected="@(ViewBag.Status != null && (OrderStatus)ViewBag.Status == s)">@s</option> }</select><button class="btn btn-success">กรอง</button></form>
+@{ ViewData["Title"] = "คำสั่งซื้อร้าน"; var carriers = (List<CarrierChoice>)ViewBag.Carriers; var shipments = (List<Shipment>)ViewBag.Shipments; }
+<h1>คำสั่งซื้อร้าน</h1><partial name="_StoreNav" />
+<div class="alert alert-light"><strong>ขั้นตอนขายและจัดส่ง</strong><br />เปิดใบสั่งซื้อดูสลิป → รอฝ่ายการเงินยืนยัน → เตรียมสินค้า → บันทึกเลขพัสดุ → ยืนยันส่งมอบ</div>
+<partial name="_LiveStatus" />
+<form method="get" class="d-flex gap-2 mb-3"><select name="status" class="form-select" aria-label="สถานะ"><option value="">ทุกสถานะ</option>@foreach(var s in Enum.GetValues<OrderStatus>()) { <option value="@s" selected="@(ViewBag.Status != null && (OrderStatus)ViewBag.Status == s)">@MemberLabels.Order(s)</option> }</select><button class="btn btn-success">กรอง</button></form>
+<div data-live-region="store-orders">
 @if(Model.Count == 0) { <p class="alert alert-info">ยังไม่มีคำสั่งซื้อในช่วงที่เลือก</p> }
 @foreach(var o in Model) {
-<section class="card p-3 mb-3"><div class="d-flex flex-wrap justify-content-between"><a href="/Orders/Detail/@o.PublicId"><strong>@o.Number</strong></a><span>@o.Status · @Bangkok.Format(o.CreatedAt)</span></div><p>@o.CustomerName · @(o.StoreId == null ? "POS" : "ออนไลน์ร้าน") · ยอดชำระ @o.CashPayable.ToString("N2") บาท</p>
-@if(o.StoreId != null && o.Status is OrderStatus.Paid or OrderStatus.Processing) { <form asp-action="Ship" method="post" class="row g-2"><input type="hidden" name="id" value="@o.Id"/><div class="col-sm-4"><input name="carrier" class="form-control" maxlength="120" placeholder="ผู้ขนส่ง" aria-label="ผู้ขนส่ง" required/></div><div class="col-sm-5"><input name="tracking" class="form-control" maxlength="120" placeholder="เลขพัสดุ" aria-label="เลขพัสดุ" required/></div><div class="col-sm-3"><button class="btn btn-success">บันทึกจัดส่ง</button></div></form> }
+<section class="card p-4 mb-3"><div class="d-flex flex-wrap justify-content-between gap-2"><a href="/Orders/Detail/@o.PublicId"><strong>@o.Number → ดูออเดอร์ / สลิป</strong></a><span class="badge text-bg-light">@MemberLabels.Order(o.Status)</span></div>
+<p class="small text-muted mt-2">@Bangkok.Format(o.CreatedAt) · @(o.StoreId == null ? "POS" : "ออนไลน์ร้าน")</p>
+<div class="row"><div class="col-md-7"><strong>@o.CustomerName</strong><p class="mb-1">โทร @o.Phone</p><p>@o.Address</p></div><div class="col-md-5"><p>ยอดชำระ <strong>@o.CashPayable.ToString("N2") บาท</strong></p><p>ขนส่งที่ลูกค้าเลือก: @o.SelectedCarrier</p></div></div>
+@if(o.StoreId != null) { <p><a class="btn btn-outline-success" href="/MyStore/ShippingLabel/@o.Id">พิมพ์ใบจ่าหน้า A5</a></p> }
+@foreach (var shipment in shipments.Where(x => x.OrderId == o.Id)) { <div class="alert alert-success">@shipment.Carrier · เลขพัสดุ <strong>@shipment.TrackingNumber</strong> · @(shipment.Status == "Delivered" ? "ส่งมอบแล้ว" : "อยู่ระหว่างจัดส่ง")</div> }
+@if(o.StoreId != null && o.Status == OrderStatus.Paid) { <form asp-action="Prepare" method="post" class="mb-3"><input type="hidden" name="id" value="@o.Id" /><button class="btn btn-outline-success">เริ่มเตรียมสินค้า</button></form> }
+@if(o.StoreId != null && o.Status is OrderStatus.Paid or OrderStatus.Processing) {
+<form asp-action="Ship" method="post" class="row g-2"><input type="hidden" name="id" value="@o.Id"/><div class="col-sm-4"><label class="form-label" for="carrier-@o.Id">ผู้ขนส่งจริง</label><select id="carrier-@o.Id" name="carrier" class="form-select" required>
+@if (!string.IsNullOrEmpty(o.SelectedCarrier) && !carriers.Any(x => x.Name == o.SelectedCarrier)) { <option value="@o.SelectedCarrier">@o.SelectedCarrier (ที่ลูกค้าเลือก)</option> }
+@foreach (var carrier in carriers) { <option value="@carrier.Name" selected="@(carrier.Name == o.SelectedCarrier)">@carrier.Name</option> }
+</select></div><div class="col-sm-5"><label class="form-label" for="tracking-@o.Id">เลขพัสดุ</label><input id="tracking-@o.Id" name="tracking" class="form-control" maxlength="120" required/></div><div class="col-sm-3 align-self-end"><button class="btn btn-success">บันทึกจัดส่ง</button></div></form> }
 @if(o.StoreId != null && o.Status == OrderStatus.Shipped) { <form asp-action="Ship" method="post"><input type="hidden" name="id" value="@o.Id"/><input type="hidden" name="delivered" value="true"/><button class="btn btn-outline-success">ยืนยันส่งมอบแล้ว</button></form> }
+@if(o.Status == OrderStatus.PendingPayment) { <p class="small text-muted mb-0">รอผู้ซื้อแนบสลิปและฝ่ายการเงินตรวจรับ ก่อนเริ่มจัดส่ง</p> }
 </section>
 }
 <div class="d-flex gap-2">@if(ViewBag.Page > 1) { <a asp-action="Orders" asp-route-page="@(ViewBag.Page - 1)" asp-route-status="@ViewBag.Status">ก่อนหน้า</a> } @if(ViewBag.HasNext) { <a asp-action="Orders" asp-route-page="@(ViewBag.Page + 1)" asp-route-status="@ViewBag.Status">ถัดไป</a> }</div>
+</div>
+@section Scripts { <script src="~/js/member-live.js" asp-append-version="true"></script> }

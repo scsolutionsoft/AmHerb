@@ -6,15 +6,5 @@ else { <div class="row g-4"><div class="col-lg-7"><div class="card p-4">
 @foreach (var line in Model.Lines) { <div class="cart-row"><div><img class="circle-thumb me-2" src="/Media/Thumb/@line.SkuId" alt="@line.Name"/><h2 class="h6">@line.Name · @line.Tier</h2><span class="text-muted">฿@line.UnitPrice.ToString("N2") / ชิ้น</span></div><form asp-action="Update" asp-route-slug="@Model.Store?.Slug" method="post" class="d-flex gap-2"><input type="hidden" name="skuId" value="@line.SkuId" /><input type="hidden" name="tier" value="@line.Tier" /><input type="number" name="quantity" value="@line.Quantity" min="0" max="10000" class="form-control quantity" aria-label="จำนวนสินค้า" /><button class="btn btn-outline-success btn-sm">อัปเดต</button></form><strong>@((line.Quantity * line.UnitPrice).ToString("N2"))</strong></div> }
 <div class="d-flex justify-content-between mt-4"><span>มูลค่าสินค้า</span><strong>฿@Model.Total.ToString("N2")</strong></div><div class="d-flex justify-content-between mt-2"><span>ค่าจัดส่งก่อนใช้คูปอง</span><strong>฿@Model.ShippingFee.ToString("N2")</strong></div>
 <p class="small text-muted mt-3">ปรับจำนวนเป็น 0 เพื่อลบสินค้า ยอดสุดท้ายและค่าจัดส่งจะคำนวณอีกครั้งเมื่อยืนยันคำสั่งซื้อ</p></div></div>
-<div class="col-lg-5"><div class="card p-4"><h2 class="h4">ข้อมูลการจัดส่ง</h2><form method="post" asp-action="Checkout" asp-route-slug="@Model.Store?.Slug"><input asp-for="Checkout.Key" type="hidden" />
-<label asp-for="Checkout.CustomerName" class="form-label">ชื่อผู้รับ</label><input asp-for="Checkout.CustomerName" class="form-control mb-3" required />
-<label asp-for="Checkout.Phone" class="form-label">เบอร์โทรศัพท์</label><input asp-for="Checkout.Phone" class="form-control mb-3" required />
-<label asp-for="Checkout.Email" class="form-label">อีเมล</label><input asp-for="Checkout.Email" class="form-control mb-3" />
-<label asp-for="Checkout.Address" class="form-label">ที่อยู่จัดส่ง</label><textarea asp-for="Checkout.Address" class="form-control mb-3" required></textarea>
-@if (Model.Store == null) { <label asp-for="Checkout.Coupon" class="form-label">รหัสคูปอง</label><input asp-for="Checkout.Coupon" class="form-control mb-3" /> }
-@if (Model.Wallet != null) { <div class="wallet-mini mb-3">Token พร้อมใช้ <strong>@Model.Wallet.Available.ToString("N2")</strong></div><label asp-for="Checkout.Tokens" class="form-label">จำนวน Token ที่ต้องการใช้</label><input asp-for="Checkout.Tokens" type="number" min="0" step="0.01" class="form-control mb-3" /><small class="text-muted">แลกเฉพาะสินค้าที่ร่วมรายการ ไม่รวมค่าจัดส่งและภาษี</small> }
-@if (Model.Store == null) { <div class="form-check my-3"><input asp-for="Checkout.StockLoading" class="form-check-input" /><label asp-for="Checkout.StockLoading" class="form-check-label">ซื้อเพื่อสะสมสต็อก/ขายต่อ (ไม่รับรางวัลเครือข่าย)</label></div> }
-@if(Model.CreditAvailable!=null){<div class="card p-3 my-3"><label><input asp-for="Checkout.UseCredit"/> ซื้อด้วยวงเงินเครดิตบริษัท</label><small>วงเงินคงเหลือ @Model.CreditAvailable.Value.ToString("N2") บาท · เครดิต @Model.CreditDays วัน</small><a href="/Credit">ดูบัญชีเครดิตและชำระหนี้</a></div>}<p class="small">หากไม่เลือกเครดิต ชำระโดยโอนเงินธนาคาร เจ้าหน้าที่จะตรวจสอบยอดก่อนจัดส่ง</p><button class="btn btn-success w-100 btn-lg">ยืนยันคำสั่งซื้อ</button></form></div></div></div> }
-
-
-
+<div class="col-lg-5"><partial name="~/Views/Cart/_CheckoutWizard.cshtml" model="Model" /></div></div> }
+@section Scripts { <script src="~/js/checkout-wizard.js" asp-append-version="true"></script> }

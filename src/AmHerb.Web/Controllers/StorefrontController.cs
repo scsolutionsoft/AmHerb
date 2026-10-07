@@ -24,6 +24,7 @@ public class StorefrontController(AmHerbDbContext db, StoreQueries queries, Cart
     {
         var store = await Find(slug); if (store == null) return NotFound();
         var model = new CartModel { Store = store, Lines = await carts.LinesAsync(await carts.GetAsync(store.Id)) };
+        model.Carriers = (await new DeliveryService(db).Options(store.Id)).Where(x => x.Enabled).ToList();
         var shipping = await db.ShippingRules.Where(x => x.Active).OrderBy(x => x.Id).FirstAsync();
         model.ShippingFee = model.Total >= shipping.FreeAbove ? 0 : shipping.Fee;
         if (User.Identity?.IsAuthenticated == true)
@@ -65,7 +66,7 @@ public class StorefrontController(AmHerbDbContext db, StoreQueries queries, Cart
     public async Task<IActionResult> Checkout(string slug, [Bind(Prefix = "Checkout")] CheckoutInput input)
     {
         var store = await Find(slug); if (store == null) return NotFound();
-        if (!ModelState.IsValid || string.IsNullOrWhiteSpace(input.Address)) { TempData["Error"] = "กรุณาตรวจสอบข้อมูลผู้รับและที่อยู่จัดส่ง"; return RedirectToAction(nameof(Cart), new { slug }); }
+        if (!ModelState.IsValid) { TempData["Error"] = "กรุณาตรวจสอบข้อมูลผู้รับและที่อยู่จัดส่ง"; return RedirectToAction(nameof(Cart), new { slug }); }
         var cart = await carts.GetAsync(store.Id);
         var buyer = User.Identity?.IsAuthenticated == true ? await members.RequireAsync(actor.Id) : null;
         // Bind replays to this browser cart as well as the store; never accept a different guest's checkout key.

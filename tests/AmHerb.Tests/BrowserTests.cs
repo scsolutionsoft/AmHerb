@@ -1,4 +1,4 @@
-﻿using AmHerb.Web.Services;
+using AmHerb.Web.Services;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
@@ -102,9 +102,9 @@ public class BrowserTests(SqlFixture fixture)
             }
             await page.GotoAsync(origin + "/Catalog"); Assert.True(await page.Locator(".product-card").CountAsync() >= 9);
             await page.GotoAsync(origin + "/Catalog/Detail/" + h.SkuId); await page.GetByRole(AriaRole.Button, new() { Name = "เพิ่มลงตะกร้า", Exact = true }).ClickAsync();
-            await page.Locator("#Checkout_CustomerName").FillAsync("Guest Customer"); await page.Locator("#Checkout_Phone").FillAsync("0901111111"); await page.Locator("#Checkout_Email").FillAsync("guest@example.invalid"); await page.Locator("#Checkout_Address").FillAsync("Bangkok test address");
+            await page.Locator("#Checkout_CustomerName").FillAsync("Guest Customer"); await page.Locator("#Checkout_Phone").FillAsync("0901111111"); await page.Locator("#Checkout_Email").FillAsync("guest@example.invalid"); await CheckoutTestData.Address(page);
             await page.GetByRole(AriaRole.Button, new() { Name = "ยืนยันคำสั่งซื้อ", Exact = true }).ClickAsync(); await page.WaitForURLAsync("**/Orders/Detail/*");
-            Assert.Contains("PendingPayment", await page.Locator(".receipt").InnerTextAsync());
+            Assert.Contains("รอชำระเงิน", await page.Locator(".receipt").InnerTextAsync());
             async Task Login(IPage target, Member member)
             {
                 var email = (await h.Db.Users.SingleAsync(x => x.Id == member.UserId)).Email!;
@@ -114,22 +114,101 @@ public class BrowserTests(SqlFixture fixture)
             }
             await Login(page, cashier); await page.GotoAsync(origin + "/Member"); Assert.True(await page.Locator("#wallet").IsVisibleAsync());
             await page.ScreenshotAsync(new() { Path = Path.Combine(screenshotDirectory, "member.png"), FullPage = true });
+            // Changes from another request become visible without navigating/reloading.
+            var child = await h.MemberAsync(cashier);
+            h.Db.TokenLedger.Add(new TokenLedger { MemberId = cashier.Id, Kind = LedgerKind.ADMIN_ADJUSTMENT, Status = TokenStatus.Available, AvailableDelta = 25, EventKey = "browser:" + Guid.NewGuid() });
+            await h.Db.SaveChangesAsync();
+            await Assertions.Expect(page.Locator("[data-live-region=wallet]")).ToContainTextAsync("25.00", new() { Timeout = 15000 });
+            await page.Locator("[data-bs-target='#network']").ClickAsync();
+            await Assertions.Expect(page.Locator($"a[href='/Member/Downline/{child.Id}']")).ToBeVisibleAsync(new() { Timeout = 15000 });
+            await page.Locator($"a[href='/Member/Downline/{child.Id}']").ClickAsync();
+            Assert.Contains(child.Code, await page.Locator("main").InnerTextAsync());
+            Assert.Equal(404, await page.EvaluateAsync<int>("async url => (await fetch(url, {credentials:'include'})).status", origin + "/Member/Downline/" + outsider.Id));
+            h.Db.ChangeTracker.Clear();
+            var liveOrder = await h.Commerce.CheckoutAsync(new() { Key = Guid.NewGuid().ToString(), CustomerName = "Live buyer", Phone = "0900000000", HouseNumber = "99/1", SubdistrictCode = "100101", PostalCode = "10200", ShippingProviderId = 1, Address = "Test", Tokens = 10 }, [new(h.SkuId, 1)], cashier.Id, cashier.Id);
+            await page.GotoAsync(origin + "/Member#orders");
+            await Assertions.Expect(page.Locator("#orders")).ToBeVisibleAsync();
+            await page.Locator($"a[href='/Orders/Detail/{liveOrder.PublicId}']").ClickAsync();
+            await page.Locator("#payment-reference").FillAsync("LIVE-" + liveOrder.PublicId);
+            await page.Locator("[data-slip-file]").SetInputFilesAsync(CheckoutTestData.SlipFile);
+            await page.GetByRole(AriaRole.Button, new() { Name = "ส่งข้อมูลแจ้งโอน" }).ClickAsync();
+            await Assertions.Expect(page.Locator(".receipt")).ToContainTextAsync("แจ้งโอนแล้ว");
+            h.Db.ChangeTracker.Clear();
+            await h.Commerce.ConfirmPaymentAsync(liveOrder.Id, "LIVE-" + liveOrder.PublicId, liveOrder.CashPayable, "Browser verified");
+            await Assertions.Expect(page.Locator(".receipt")).ToContainTextAsync("ยืนยันรับเงินแล้ว", new() { Timeout = 15000 });
+            await Assertions.Expect(page.Locator("[data-pending-payment]")).ToBeHiddenAsync();
+            await page.GotoAsync(origin + "/Member");
+            Assert.Contains("15.00", await page.Locator("[data-live-region=wallet]").InnerTextAsync());
+            await page.SetViewportSizeAsync(390, 844);
+            Assert.True(await page.EvaluateAsync<bool>("document.documentElement.scrollWidth <= window.innerWidth + 1"));
+            await page.ScreenshotAsync(new() { Path = Path.Combine(screenshotDirectory, "member-live-mobile.png"), FullPage = true });
+            await page.SetViewportSizeAsync(1440, 1000);
             await page.GotoAsync(origin + "/Pos"); await page.Locator("#opening").FillAsync("500"); await page.GetByRole(AriaRole.Button, new() { Name = "เปิดกะ", Exact = true }).ClickAsync();
             await page.Locator("#sku-" + h.SkuId).FillAsync("1"); await page.Locator("#phone").FillAsync("0912345678"); await page.Locator("#tendered").FillAsync("1000");
             await page.ScreenshotAsync(new() { Path = Path.Combine(screenshotDirectory, "pos-desktop.png"), FullPage = true });
             await page.GetByRole(AriaRole.Button, new() { Name = "รับชำระ / ออกใบเสร็จ", Exact = true }).ClickAsync(); await page.WaitForURLAsync("**/Orders/Detail/*");
             var receiptUrl = page.Url; Assert.Contains("10.00", await page.Locator(".receipt").InnerTextAsync()); await page.ScreenshotAsync(new() { Path = Path.Combine(screenshotDirectory, "pos-receipt.png"), FullPage = true });
             var otherContext = await browser.NewContextAsync(); var otherPage = await otherContext.NewPageAsync(); await Login(otherPage, outsider);
+            Assert.Equal(404, await otherPage.EvaluateAsync<int>("async url => (await fetch(url, {credentials:'include'})).status", origin + "/Member/Sale/" + liveOrder.PublicId));
+            Assert.Equal(404, await otherPage.EvaluateAsync<int>("async url => (await fetch(url, {credentials:'include'})).status", origin + "/Orders/Detail/" + liveOrder.PublicId));
             var forbiddenReceipt = await otherPage.EvaluateAsync<int>("async url => (await fetch(url, {credentials:'include'})).status", receiptUrl); Assert.Equal(404, forbiddenReceipt);
             var forbiddenAdmin = await otherPage.GotoAsync(origin + "/Admin"); Assert.Contains("AccessDenied", otherPage.Url);
             // Anti-forgery prevents POSTs with the authentication cookie but no request token.
             var noCsrf = await otherPage.EvaluateAsync<int>("async () => (await fetch('/Pos/Open', {method:'POST', credentials:'include', redirect:'manual'})).status"); Assert.Equal(400, noCsrf);
             var adminContext = await browser.NewContextAsync(); var adminPage = await adminContext.NewPageAsync(); await Login(adminPage, admin);
+            var creditAccount = new CreditAccount { MemberId = outsider.Id, Limit = 1000, Enabled = true };
+            var creditOrder = new Order { Number = "OPS-" + Guid.NewGuid().ToString("N"), IdempotencyKey = Guid.NewGuid().ToString(), BuyerMemberId = outsider.Id, Channel = SalesChannel.Manual, Status = OrderStatus.Processing, CashPayable = 800 };
+            h.Db.CreditAccounts.Add(creditAccount); h.Db.Orders.Add(creditOrder); await h.Db.SaveChangesAsync();
+            h.Db.CreditInvoices.Add(new CreditInvoice { CreditAccountId = creditAccount.Id, OrderId = creditOrder.Id, Amount = 800, Paid = 200, Adjusted = 100, DueAt = DateTime.UtcNow.AddDays(-2), IssuedAt = DateTime.UtcNow.AddDays(-5) });
+            h.Db.CreditReceipts.Add(new CreditReceipt { CreditAccountId = creditAccount.Id, RequestKey = Guid.NewGuid(), Amount = 50, Reference = "OPS-TEST", Status = CreditReceiptStatus.Pending, SubmittedAt = DateTime.UtcNow });
+            await h.Db.SaveChangesAsync();
+            foreach (var route in new[] { "/Operations", "/Operations/Orders", "/Operations/Orders?shipping=true", "/Operations/Orders?origin=central&relation=downline&memberCode=" + cashier.Code,
+                "/Operations/Member/" + cashier.Id, "/Operations/Tokens", "/Operations/Tokens?negative=true", "/Operations/Clearing", "/Operations/Clearing?overdue=true", "/Accounting?origin=central&memberCode=" + cashier.Code })
+                Assert.Equal(200, (await adminPage.GotoAsync(origin + route))!.Status);
+            Assert.Equal(200, (await adminPage.GotoAsync(origin + "/Operations/Clearing?overdue=true&q=" + outsider.Code))!.Status);
+            await Assertions.Expect(adminPage.Locator("[data-live-region=clearing]")).ToContainTextAsync("500.00");
+            await Assertions.Expect(adminPage.Locator($"a[href='/Credit/Account/{creditAccount.Id}']")).ToBeVisibleAsync();
+            Assert.Equal(200, (await adminPage.GotoAsync(origin + "/Operations/Label/" + liveOrder.Id))!.Status);
+            await Assertions.Expect(adminPage.Locator(".recipient")).ToContainTextAsync("Live buyer");
+            await adminPage.GotoAsync(origin + "/Operations/Orders?q=" + liveOrder.Number);
+            await adminPage.Locator("form[action='/Operations/Prepare'] button").ClickAsync();
+            await adminPage.GotoAsync(origin + "/Operations/Orders?q=" + liveOrder.Number);
+            await adminPage.Locator("article details summary").ClickAsync();
+            await adminPage.Locator("#carrier-" + liveOrder.Id).FillAsync("ไปรษณีย์ไทย"); await adminPage.Locator("#tracking-" + liveOrder.Id).FillAsync("OPS-TRACK"); await adminPage.Locator("#reason-" + liveOrder.Id).FillAsync("Warehouse dispatch test");
+            await adminPage.GetByRole(AriaRole.Button, new() { Name = "บันทึกส่งสินค้า", Exact = true }).ClickAsync();
+            await adminPage.GotoAsync(origin + "/Operations/Orders?q=" + liveOrder.Number);
+            await adminPage.Locator("input[name=reason]").FillAsync("Delivered evidence"); await adminPage.GetByRole(AriaRole.Button, new() { Name = "ยืนยันส่งมอบแล้ว", Exact = true }).ClickAsync();
+            h.Db.ChangeTracker.Clear(); Assert.Equal(OrderStatus.Delivered, (await h.Db.Orders.SingleAsync(x => x.Id == liveOrder.Id)).Status);
+            await otherPage.GotoAsync(origin + "/Operations/Clearing"); Assert.Contains("AccessDenied", otherPage.Url);
+            await otherPage.GotoAsync(origin + "/Operations/Member/" + admin.Id); Assert.Contains("AccessDenied", otherPage.Url);
+            await adminPage.SetViewportSizeAsync(390, 844);
+            await adminPage.GotoAsync(origin + "/Operations/Orders");
+            Assert.True(await adminPage.EvaluateAsync<bool>("document.documentElement.scrollWidth <= innerWidth + 1"));
+            await adminPage.ScreenshotAsync(new() { Path = Path.Combine(screenshotDirectory, "operations-orders-mobile.png"), FullPage = true });
+            await adminPage.GotoAsync(origin + "/Operations/Clearing");
+            await adminPage.ScreenshotAsync(new() { Path = Path.Combine(screenshotDirectory, "operations-clearing-mobile.png"), FullPage = true });
+            await adminPage.SetViewportSizeAsync(1440, 1000);
             foreach (var section in new[] { "Dashboard", "Members", "Products", "Prices", "TokenRates", "TokenPolicies", "Ledger", "Orders", "Payments", "POS", "Imports", "Inventory", "Returns", "Promotions", "Reports", "AuditLogs", "Settings" })
             { var response = await adminPage.GotoAsync(origin + "/Admin?section=" + section); Assert.Equal(200, response!.Status); }
             await adminPage.GotoAsync(origin + "/Admin"); await adminPage.ScreenshotAsync(new() { Path = Path.Combine(screenshotDirectory, "admin-dashboard.png"), FullPage = true });
             var stockResponse = await adminPage.GotoAsync(origin + "/Stock"); Assert.Equal(200, stockResponse!.Status);
             Assert.True(await adminPage.Locator(".stock-metrics").IsVisibleAsync());
+            var adjustBatch = await h.Db.InventoryBatches.AsNoTracking().FirstAsync(x => x.SkuId == h.SkuId && x.WarehouseId == h.WarehouseId);
+            await adminPage.GotoAsync(origin + "/Stock?warehouseId=" + h.WarehouseId);
+            await adminPage.Locator($"button[data-sku='{h.SkuId}'][data-warehouse='{h.WarehouseId}']").ClickAsync();
+            await Assertions.Expect(adminPage.Locator("#stock-adjust-modal")).ToBeVisibleAsync();
+            await adminPage.Locator("#stock-adjust-lot option").First.WaitForAsync(new() { State = WaitForSelectorState.Attached });
+            await adminPage.Locator("#stock-adjust-lot").SelectOptionAsync(adjustBatch.Id.ToString());
+            await adminPage.Locator("#stock-adjust-delta").FillAsync("2");
+            await adminPage.Locator("#stock-adjust-reason").FillAsync("Browser stock count correction");
+            await Assertions.Expect(adminPage.Locator("#stock-adjust-preview")).ToContainTextAsync((adjustBatch.QtyAvailable + 2).ToString());
+            await adminPage.ScreenshotAsync(new() { Path = Path.Combine(screenshotDirectory, "stock-adjust-popup.png"), FullPage = true });
+            await adminPage.Locator("#stock-adjust-save").ClickAsync();
+            await Assertions.Expect(adminPage.Locator("#stock-adjust-modal")).ToBeHiddenAsync();
+            h.Db.ChangeTracker.Clear();
+            Assert.Equal(adjustBatch.QtyAvailable + 2, (await h.Db.InventoryBatches.AsNoTracking().SingleAsync(x => x.Id == adjustBatch.Id)).QtyAvailable);
+            await otherPage.GotoAsync(origin + "/Stock/Adjustment?batchId=" + adjustBatch.Id); Assert.Contains("AccessDenied", otherPage.Url);
+            await adminPage.GotoAsync(origin + "/Stock");
             await adminPage.ScreenshotAsync(new() { Path = Path.Combine(screenshotDirectory, "stock-desktop.png"), FullPage = true });
             await adminPage.SetViewportSizeAsync(390, 844);
             Assert.True(await adminPage.EvaluateAsync<bool>("document.documentElement.scrollWidth <= window.innerWidth + 1"));
@@ -144,18 +223,39 @@ public class BrowserTests(SqlFixture fixture)
             await page.Locator("#transfer-source").SelectOptionAsync("1");
             await page.Locator("#transfer-destination").SelectOptionAsync(privateWarehouse.Id.ToString());
             await page.Locator("#transfer-sku").SelectOptionAsync(h.SkuId.ToString());
+            await page.Locator("#transfer-next").ClickAsync();
+            await Assertions.Expect(page.Locator("#transfer-source-ready")).ToContainTextAsync("พร้อมโอน");
+            await page.Locator("[data-transfer-details=source]").ClickAsync();
+            await Assertions.Expect(page.Locator("#transfer-product-modal")).ToBeVisibleAsync();
+            await page.ScreenshotAsync(new() { Path = Path.Combine(screenshotDirectory, "transfer-lots-mobile.png"), FullPage = true });
+            await page.Locator("#transfer-product-modal .btn-close").ClickAsync();
             await page.Locator("#transfer-quantity").FillAsync("2");
+            await page.ScreenshotAsync(new() { Path = Path.Combine(screenshotDirectory, "transfer-wizard-mobile.png"), FullPage = true });
+            await page.Locator("#transfer-next").ClickAsync();
             await page.Locator("#transfer-reason").FillAsync("Browser replenishment");
             await page.GetByRole(AriaRole.Button, new() { Name = "ส่งคำขอเบิก", Exact = true }).ClickAsync();
+            await Assertions.Expect(page.Locator("#transfer-confirm-summary")).ToContainTextAsync("จำนวน 2 ชิ้น");
+            await page.Locator("#transfer-confirm-save").ClickAsync();
             await page.WaitForURLAsync("**/Transfers/Detail/*"); var transferUrl = page.Url;
+            await Assertions.Expect(page.Locator("#transfer-notice-modal")).ToBeVisibleAsync();
+            var transferId = transferUrl.Split('/').Last();
+            Assert.Equal(404, await otherPage.EvaluateAsync<int>("async url => (await fetch(url)).status", origin + "/Transfers/Preview?transferId=" + transferId));
+            Assert.Equal(404, await otherPage.EvaluateAsync<int>("async url => (await fetch(url)).status", origin + $"/Transfers/Preview?sourceId=1&destinationId={privateWarehouse.Id}&skuId={h.SkuId}"));
             var hiddenTransfer = await otherPage.EvaluateAsync<int>("async url => (await fetch(url, {credentials:'include'})).status", transferUrl); Assert.Equal(404, hiddenTransfer);
             await adminPage.GotoAsync(transferUrl);
             await adminPage.Locator("#dispatch-tracking").FillAsync("BROWSER-TRANSFER");
             await adminPage.Locator("#dispatch-reason").FillAsync("Approved warehouse issue");
             await adminPage.GetByRole(AriaRole.Button, new() { Name = "อนุมัติและจ่ายสินค้า", Exact = true }).ClickAsync();
+            await adminPage.Locator("#transfer-confirm-save").ClickAsync();
+            await Assertions.Expect(adminPage.Locator("#transfer-notice-modal")).ToBeVisibleAsync();
             await page.GotoAsync(transferUrl);
             await page.Locator("#receive-reason").FillAsync("Received complete");
             await page.GetByRole(AriaRole.Button, new() { Name = "ยืนยันรับครบ 2 ชิ้น", Exact = true }).ClickAsync();
+            await Assertions.Expect(page.Locator("#transfer-confirm-save")).ToBeDisabledAsync();
+            await page.Locator("#transfer-counted").CheckAsync();
+            await page.Locator("#transfer-confirm-save").ClickAsync();
+            await Assertions.Expect(page.Locator("#transfer-notice-modal")).ToBeVisibleAsync();
+            await page.Locator("#transfer-notice-modal .btn-close").ClickAsync();
             Assert.Contains("รับเข้าคลังแล้ว", await page.Locator(".page-heading").InnerTextAsync());
             Assert.Equal(2, await h.Db.InventoryBatches.Where(x => x.WarehouseId == privateWarehouse.Id && x.SkuId == h.SkuId).SumAsync(x => x.QtyAvailable));
             Assert.True(await page.EvaluateAsync<bool>("document.documentElement.scrollWidth <= window.innerWidth + 1"));
@@ -228,7 +328,7 @@ public class BrowserTests(SqlFixture fixture)
             await page.GetByRole(AriaRole.Button,new(){Name="เพิ่มลงตะกร้า",Exact=true}).First.ClickAsync();
             await page.Locator("#Checkout_CustomerName").FillAsync("Credit member");
             await page.Locator("#Checkout_Phone").FillAsync("0901239999");
-            await page.Locator("#Checkout_Address").FillAsync("Credit test address");
+            await CheckoutTestData.Address(page);
             await page.Locator("#Checkout_UseCredit").CheckAsync();
             await page.GetByRole(AriaRole.Button,new(){Name="ยืนยันคำสั่งซื้อ",Exact=true}).ClickAsync();
             await page.WaitForURLAsync("**/Orders/Detail/*");
@@ -251,6 +351,24 @@ public class BrowserTests(SqlFixture fixture)
             await adminPage.ScreenshotAsync(new(){Path=Path.Combine(screenshotDirectory,"credit-statement-popup.png"),FullPage=true});
             await page.GotoAsync(accountUrl);Assert.True(await page.EvaluateAsync<bool>("document.documentElement.scrollWidth <= window.innerWidth + 1"));
             await page.ScreenshotAsync(new(){Path=Path.Combine(screenshotDirectory,"credit-account-mobile.png"),FullPage=true});
+            await page.GotoAsync(origin + "/Pos");
+            await page.GetByRole(AriaRole.Button, new() { Name = "ตัวช่วยขายทีละขั้นตอน" }).ClickAsync();
+            await page.Locator("[data-pos-guide-next]").ClickAsync();
+            await Assertions.Expect(page.Locator("#pos-guide")).ToContainTextAsync("2. ระบุลูกค้า");
+            await page.Locator("[data-pos-guide-next]").ClickAsync();
+            await page.Locator("[data-pos-guide-next]").ClickAsync();
+            await page.Locator("#sku-" + h.SkuId).FillAsync("1");
+            await page.Locator("#phone").FillAsync("0812345678");
+            await page.Locator("#method").SelectOptionAsync("ManualBankTransfer");
+            await page.Locator("#SlipReference").FillAsync("POS-CAMERA");
+            var chooser = await page.RunAndWaitForFileChooserAsync(() => page.Locator("[data-slip-camera]").ClickAsync());
+            Assert.Equal("environment", await page.Locator("[data-slip-file]").GetAttributeAsync("capture"));
+            await chooser.SetFilesAsync(CheckoutTestData.SlipFile);
+            await Assertions.Expect(page.Locator("[data-slip-preview]")).ToBeVisibleAsync();
+            await page.GetByRole(AriaRole.Button, new() { Name = "รับชำระ / ออกใบเสร็จ", Exact = true }).ClickAsync();
+            await page.WaitForURLAsync("**/Orders/Detail/*");
+            await Assertions.Expect(page.Locator(".receipt")).ToContainTextAsync("แจ้งโอนแล้ว");
+            await Assertions.Expect(page.Locator("[data-live-region=slips]")).ToContainTextAsync("POS-CAMERA");
             await guestContext.CloseAsync();Assert.Empty(jsErrors);
             await context.CloseAsync(); await otherContext.CloseAsync(); await adminContext.CloseAsync();
         }
@@ -260,9 +378,3 @@ public class BrowserTests(SqlFixture fixture)
         }
     }
 }
-
-
-
-
-
-

@@ -9,6 +9,27 @@ namespace AmHerb.Tests;
 [Collection("SQL")]
 public class TransferTests(SqlFixture fixture)
 {
+    [SqlFact] public async Task Transfer_uses_only_unreserved_stock_and_sale_finalization_does_not_deduct_twice()
+    {
+        await using var h = new Harness(fixture); await h.InitializeAsync(10); var owner = await h.MemberAsync();
+        var user = Principal(owner); var staff = Principal(owner, "Warehouse");
+        var destination = await h.Db.Warehouses.SingleAsync(x => x.OwnerMemberId == owner.Id);
+        var order = new Order { Number = Guid.NewGuid().ToString(), IdempotencyKey = Guid.NewGuid().ToString() };
+        var item = new OrderItem { Order = order, SkuId = h.SkuId, Quantity = 7, Name = "Reserved for sale" };
+        order.Items.Add(item); h.Db.Orders.Add(order); await h.Db.SaveChangesAsync();
+        await h.Inventory.ReserveAsync(item, h.WarehouseId); await h.Db.SaveChangesAsync();
+        var service = Service(h.Db, h.Clock, staff);
+        var tooMany = await service.RequestAsync(user, Guid.NewGuid(), h.WarehouseId, destination.Id, h.SkuId, 4, "Cannot take reserved stock");
+        await Assert.ThrowsAsync<BusinessException>(() => service.DispatchAsync(staff, tooMany.Id, "TEST", "Stock reserved elsewhere"));
+        var transfer = await service.RequestAsync(user, Guid.NewGuid(), h.WarehouseId, destination.Id, h.SkuId, 3, "Only unreserved stock");
+        await service.DispatchAsync(staff, transfer.Id, "TEST", "Transfer three");
+        var batch = await h.Db.InventoryBatches.SingleAsync(x => x.WarehouseId == h.WarehouseId && x.SkuId == h.SkuId);
+        Assert.Equal(0, batch.QtyAvailable); Assert.Equal(7, batch.QtyReserved);
+        await h.Inventory.FinalizeAsync(order, true); await h.Db.SaveChangesAsync();
+        Assert.Equal(0, batch.QtyAvailable); Assert.Equal(0, batch.QtyReserved);
+        await service.ReceiveAsync(user, transfer.Id, "Received three");
+        Assert.Equal(3, await h.Db.InventoryBatches.Where(x => x.WarehouseId == destination.Id).SumAsync(x => x.QtyAvailable));
+    }
     private static ClaimsPrincipal Principal(Member member, string role = "Member") => new(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, member.UserId), new Claim(ClaimTypes.Role, role)], "Test"));
     private static StockTransferService Service(AmHerbDbContext db, TimeProvider clock, ClaimsPrincipal user) => new(db, clock, new AuditService(db, new Actor(new HttpContextAccessor { HttpContext = new DefaultHttpContext { User = user } })), new NotificationService(db));
     [SqlFact] public async Task Transfer_FEFO_dispatch_receive_replays_preserve_total_and_do_not_issue_rewards()
@@ -95,4 +116,3 @@ public class TransferTests(SqlFixture fixture)
         Assert.Equal(2, await h.Db.InventoryTransactions.CountAsync(x => x.Reason.StartsWith($"Transfer #{t.Id};")));
     }
 }
-

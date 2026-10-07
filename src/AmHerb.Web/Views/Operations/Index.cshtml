@@ -1,0 +1,6 @@
+@model List<WorkQueue>
+@{ ViewData["Title"] = "ศูนย์บริหารงานขายและคลัง"; }
+<p class="eyebrow">AM HERB OPERATIONS</p><h1>ศูนย์บริหารงานขายและคลัง</h1><p class="text-muted">ตรวจงานค้าง เชื่อมออเดอร์กับสมาชิก คลัง และบัญชีจากจุดเดียว</p><partial name="_OperationsNav" /><partial name="_LiveStatus" />
+<div class="row g-3" data-live-region="operations-queues">@foreach(var row in Model) { <div class="col-md-6 col-xl-3"><a href="@row.Url" class="card p-4 h-100 text-decoration-none"><span>@row.Title</span><strong class="display-6 my-2">@row.Value</strong><small class="text-muted">@row.Hint →</small></a></div> }</div>
+<section class="card p-4 mt-4"><h2 class="h4">ลำดับงานที่ตรวจสอบย้อนกลับได้</h2><ol class="mb-0"><li>ตรวจออเดอร์และหลักฐานรับเงิน ก่อนยืนยันการชำระ</li><li>ตรวจคลังที่ตัดสินค้าและผู้รับ เตรียมสินค้า พิมพ์ใบปะหน้า และบันทึกเลขพัสดุ</li><li>ตรวจรายการบัญชี ใบแจ้งหนี้เครดิต และรายการรับชำระก่อนเคลียร์ยอดสมาชิก</li><li>ตรวจ Token จากบัญชีรายการและออเดอร์ต้นทาง แยกจากยอดเงินสด</li></ol></section>
+@section Scripts { <script src="~/js/member-live.js" asp-append-version="true"></script> }

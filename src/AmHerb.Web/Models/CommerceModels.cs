@@ -10,6 +10,7 @@ public record ProductDetail(Product Product, IReadOnlyList<CatalogItem> Skus, IR
 public record CartLine(long SkuId, string Name, int Quantity, decimal UnitPrice, string Tier = "Retail");
 public class CartModel
 {
+    public List<CarrierChoice> Carriers { get; set; } = [];
     public MemberStore? Store { get; set; }
     public List<CartLine> Lines { get; set; } = [];
     public decimal Total => Lines.Sum(x => x.Quantity * x.UnitPrice);
@@ -31,6 +32,8 @@ public class PosModel
 }
 public class PosSaleInput : CheckoutInput
 {
+    public IFormFile? Slip { get; set; }
+    [MaxLength(200)] public string? SlipReference { get; set; }
     public long SessionId { get; set; }
     public long[] SkuIds { get; set; } = [];
     public int[] Quantities { get; set; } = [];
@@ -55,13 +58,15 @@ public class MemberDashboard
     public string ReferralUrl { get; set; } = "";
 }
 public record TreeNode(long Id, long? ParentId, string Code, string Name, int Depth, MemberStatus Status);
+public record DownlineDetail(TreeNode Member, IReadOnlyList<TreeNode> Children);
+public record MemberSale(string Number, OrderStatus Status, DateTime CreatedAt, decimal Merchandise);
 public class RegisterInput
 {
     [Required, EmailAddress] public string Email { get; set; } = "";
     [Required, StringLength(160)] public string Name { get; set; } = "";
-    [Required, StringLength(100, MinimumLength = 12), DataType(DataType.Password)] public string Password { get; set; } = "";
+    [Required, StringLength(10, MinimumLength = 5, ErrorMessage = "รหัสผ่านต้องมี 5–10 ตัวอักษร"), DataType(DataType.Password)] public string Password { get; set; } = "";
     [Compare(nameof(Password)), DataType(DataType.Password)] public string ConfirmPassword { get; set; } = "";
-    public string? SponsorCode { get; set; }
+    [StringLength(40)] public string? SponsorCode { get; set; }
 }
 public record TableRow(string[] Cells, string? Link = null);
 public class AdminPage
